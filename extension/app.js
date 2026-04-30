@@ -15,7 +15,6 @@
 
 'use strict';
 
-
 /* ----------------------------------------------------------------
    CHROME TABS — Direct API Access
 
@@ -197,7 +196,6 @@ async function closeTabOutDupes() {
   await fetchOpenTabs();
 }
 
-
 /* ----------------------------------------------------------------
    SAVED FOR LATER — chrome.storage.local
 
@@ -282,7 +280,6 @@ async function dismissSavedTab(id) {
     await chrome.storage.local.set({ deferred });
   }
 }
-
 
 /* ----------------------------------------------------------------
    UI HELPERS
@@ -461,13 +458,12 @@ function checkAndShowEmptyState() {
           <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
         </svg>
       </div>
-      <div class="empty-title">Inbox zero, but for tabs.</div>
-      <div class="empty-subtitle">You're free.</div>
+      <div class="empty-title">标签页已清空</div>
     </div>
   `;
 
   const countEl = document.getElementById('openTabsSectionCount');
-  if (countEl) countEl.textContent = '0 domains';
+  if (countEl) countEl.textContent = '0 个标签页';
 }
 
 /**
@@ -484,11 +480,11 @@ function timeAgo(dateStr) {
   const diffHours = Math.floor((now - then) / 3600000);
   const diffDays  = Math.floor((now - then) / 86400000);
 
-  if (diffMins < 1)   return 'just now';
-  if (diffMins < 60)  return diffMins + ' min ago';
-  if (diffHours < 24) return diffHours + ' hr' + (diffHours !== 1 ? 's' : '') + ' ago';
-  if (diffDays === 1) return 'yesterday';
-  return diffDays + ' days ago';
+  if (diffMins < 1)   return '刚刚';
+  if (diffMins < 60)  return diffMins + ' 分钟前';
+  if (diffHours < 24) return diffHours + ' 小时前';
+  if (diffDays === 1) return '昨天';
+  return diffDays + ' 天前';
 }
 
 /**
@@ -496,23 +492,22 @@ function timeAgo(dateStr) {
  */
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return '早上好';
+  if (hour < 17) return '下午好';
+  return '晚上好';
 }
 
 /**
  * getDateDisplay() — "Friday, April 4, 2026"
  */
 function getDateDisplay() {
-  return new Date().toLocaleDateString('en-US', {
+  return new Date().toLocaleDateString('zh-CN', {
     weekday: 'long',
     year:    'numeric',
     month:   'long',
     day:     'numeric',
   });
 }
-
 
 /* ----------------------------------------------------------------
    DOMAIN & TITLE CLEANUP HELPERS
@@ -525,30 +520,18 @@ const FRIENDLY_DOMAINS = {
   'gist.github.com':      'GitHub Gist',
   'youtube.com':          'YouTube',
   'www.youtube.com':      'YouTube',
-  'music.youtube.com':    'YouTube Music',
-  'x.com':                'X',
-  'www.x.com':            'X',
-  'twitter.com':          'X',
-  'www.twitter.com':      'X',
-  'reddit.com':           'Reddit',
-  'www.reddit.com':       'Reddit',
-  'old.reddit.com':       'Reddit',
-  'substack.com':         'Substack',
-  'www.substack.com':     'Substack',
-  'medium.com':           'Medium',
-  'www.medium.com':       'Medium',
-  'linkedin.com':         'LinkedIn',
-  'www.linkedin.com':     'LinkedIn',
-  'stackoverflow.com':    'Stack Overflow',
-  'www.stackoverflow.com':'Stack Overflow',
-  'news.ycombinator.com': 'Hacker News',
+  'music.youtube.com':    'YouTube',
+  'x.com':                '推特',
+  'www.x.com':            '推特',
+  'twitter.com':          '推特',
+  'www.twitter.com':      '推特',
+  'linkedin.com':         '领英',
+  'www.linkedin.com':     '领英',
   'google.com':           'Google',
   'www.google.com':       'Google',
   'mail.google.com':      'Gmail',
-  'docs.google.com':      'Google Docs',
-  'drive.google.com':     'Google Drive',
-  'calendar.google.com':  'Google Calendar',
-  'meet.google.com':      'Google Meet',
+  'docs.google.com':      'Google 文档',
+  'drive.google.com':     'Google 云盘',
   'gemini.google.com':    'Gemini',
   'chatgpt.com':          'ChatGPT',
   'www.chatgpt.com':      'ChatGPT',
@@ -556,45 +539,30 @@ const FRIENDLY_DOMAINS = {
   'claude.ai':            'Claude',
   'www.claude.ai':        'Claude',
   'code.claude.com':      'Claude Code',
-  'notion.so':            'Notion',
-  'www.notion.so':        'Notion',
-  'figma.com':            'Figma',
-  'www.figma.com':        'Figma',
-  'slack.com':            'Slack',
-  'app.slack.com':        'Slack',
-  'discord.com':          'Discord',
-  'www.discord.com':      'Discord',
-  'wikipedia.org':        'Wikipedia',
-  'en.wikipedia.org':     'Wikipedia',
-  'amazon.com':           'Amazon',
-  'www.amazon.com':       'Amazon',
-  'netflix.com':          'Netflix',
-  'www.netflix.com':      'Netflix',
-  'spotify.com':          'Spotify',
-  'open.spotify.com':     'Spotify',
+  'wikipedia.org':        '维基百科',
+  'en.wikipedia.org':     '维基百科',
+  'amazon.com':           '亚马逊',
+  'www.amazon.com':       '亚马逊',
+  'netflix.com':          '网飞',
+  'www.netflix.com':      '网飞',
   'vercel.com':           'Vercel',
   'www.vercel.com':       'Vercel',
   'npmjs.com':            'npm',
   'www.npmjs.com':        'npm',
-  'developer.mozilla.org':'MDN',
   'arxiv.org':            'arXiv',
   'www.arxiv.org':        'arXiv',
   'huggingface.co':       'Hugging Face',
   'www.huggingface.co':   'Hugging Face',
   'producthunt.com':      'Product Hunt',
   'www.producthunt.com':  'Product Hunt',
-  'xiaohongshu.com':      'RedNote',
-  'www.xiaohongshu.com':  'RedNote',
-  'local-files':          'Local Files',
+  'xiaohongshu.com':      '小红书',
+  'www.xiaohongshu.com':  '小红书',
+  'local-files':          '本地文件',
 };
 
 function friendlyDomain(hostname) {
   if (!hostname) return '';
   if (FRIENDLY_DOMAINS[hostname]) return FRIENDLY_DOMAINS[hostname];
-
-  if (hostname.endsWith('.substack.com') && hostname !== 'substack.com') {
-    return capitalize(hostname.replace('.substack.com', '')) + "'s Substack";
-  }
   if (hostname.endsWith('.github.io')) {
     return capitalize(hostname.replace('.github.io', '')) + ' (GitHub Pages)';
   }
@@ -677,20 +645,11 @@ function smartTitle(title, url) {
   }
 
   if ((hostname === 'www.youtube.com' || hostname === 'youtube.com') && pathname === '/watch') {
-    if (titleIsUrl) return 'YouTube Video';
-  }
-
-  if ((hostname === 'www.reddit.com' || hostname === 'reddit.com' || hostname === 'old.reddit.com') && pathname.includes('/comments/')) {
-    const parts  = pathname.split('/').filter(Boolean);
-    const subIdx = parts.indexOf('r');
-    if (subIdx !== -1 && parts[subIdx + 1]) {
-      if (titleIsUrl) return `r/${parts[subIdx + 1]} post`;
-    }
+    if (titleIsUrl) return 'YouTube 视频';
   }
 
   return title || url;
 }
-
 
 /* ----------------------------------------------------------------
    SVG ICON STRINGS
@@ -700,14 +659,13 @@ const ICONS = {
   close:   `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`,
   archive: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg>`,
   focus:   `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25" /></svg>`,
+  undo:    `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>`,
 };
-
 
 /* ----------------------------------------------------------------
    IN-MEMORY STORE FOR OPEN-TAB GROUPS
    ---------------------------------------------------------------- */
 let domainGroups = [];
-
 
 /* ----------------------------------------------------------------
    HELPER: filter out browser-internal pages
@@ -752,7 +710,6 @@ function checkTabOutDupes() {
   }
 }
 
-
 /* ----------------------------------------------------------------
    OVERFLOW CHIPS ("+N more" expand button in domain cards)
    ---------------------------------------------------------------- */
@@ -772,10 +729,10 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
       <span class="chip-text">${label}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Save for later">
+        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="保存到 Todo List">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
-        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="Close this tab">
+        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="关闭此标签">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
       </div>
@@ -788,7 +745,6 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
       <span class="chip-text">+${hiddenTabs.length} more</span>
     </div>`;
 }
-
 
 /* ----------------------------------------------------------------
    DOMAIN CARD RENDERER
@@ -815,12 +771,12 @@ function renderDomainCard(group) {
 
   const tabBadge = `<span class="open-tabs-badge">
     ${ICONS.tabs}
-    ${tabCount} tab${tabCount !== 1 ? 's' : ''} open
+    标签总数：${tabCount}
   </span>`;
 
   const dupeBadge = hasDupes
     ? `<span class="open-tabs-badge" style="color:var(--accent-amber);background:rgba(200,113,58,0.08);">
-        ${totalExtras} duplicate${totalExtras !== 1 ? 's' : ''}
+        重复标签：${totalExtras}
       </span>`
     : '';
 
@@ -853,27 +809,22 @@ function renderDomainCard(group) {
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
       <span class="chip-text">${label}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Save for later">
+        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="保存到 Todo List">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
-        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="Close this tab">
+        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="关闭此标签">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
       </div>
     </div>`;
   }).join('') + (extraCount > 0 ? buildOverflowChips(uniqueTabs.slice(8), urlCounts) : '');
 
-  let actionsHtml = `
-    <button class="action-btn close-tabs" data-action="close-domain-tabs" data-domain-id="${stableId}">
-      ${ICONS.close}
-      Close all ${tabCount} tab${tabCount !== 1 ? 's' : ''}
-    </button>`;
-
+  let dedupHtml = '';
   if (hasDupes) {
     const dupeUrlsEncoded = dupeUrls.map(([url]) => encodeURIComponent(url)).join(',');
-    actionsHtml += `
-      <button class="action-btn" data-action="dedup-keep-one" data-dupe-urls="${dupeUrlsEncoded}">
-        Close ${totalExtras} duplicate${totalExtras !== 1 ? 's' : ''}
+    dedupHtml = `
+      <button class="action-btn" data-action="dedup-keep-one" data-dupe-urls="${dupeUrlsEncoded}" style="font-size:10px; padding:2px 8px; margin-left: 8px;">
+        清理重复项
       </button>`;
   }
 
@@ -882,20 +833,22 @@ function renderDomainCard(group) {
       <div class="status-bar"></div>
       <div class="mission-content">
         <div class="mission-top">
-          <span class="mission-name">${isLanding ? 'Homepages' : (group.label || friendlyDomain(group.domain))}</span>
+          <span class="mission-name">${isLanding ? '起始页' : (group.label || friendlyDomain(group.domain))}</span>
+          <div style="margin-left: auto; display: flex; align-items: center;">
+            <button class="action-btn close-tabs" data-action="close-domain-tabs" data-domain-id="${stableId}" style="font-size:10px; padding:2px 8px;">
+              ${ICONS.close} 关闭全部标签
+            </button>
+            ${dedupHtml}
+          </div>
+        </div>
+        <div class="mission-badges">
           ${tabBadge}
           ${dupeBadge}
         </div>
         <div class="mission-pages">${pageChips}</div>
-        <div class="actions">${actionsHtml}</div>
-      </div>
-      <div class="mission-meta">
-        <div class="mission-page-count">${tabCount}</div>
-        <div class="mission-page-label">tabs</div>
       </div>
     </div>`;
 }
-
 
 /* ----------------------------------------------------------------
    SAVED FOR LATER — Render Checklist Column
@@ -932,7 +885,7 @@ async function renderDeferredColumn() {
 
     // Render active checklist items
     if (active.length > 0) {
-      countEl.textContent = `${active.length} item${active.length !== 1 ? 's' : ''}`;
+      countEl.textContent = `${active.length} 项`;
       list.innerHTML = active.map(item => renderDeferredItem(item)).join('');
       list.style.display = 'block';
       empty.style.display = 'none';
@@ -981,7 +934,7 @@ function renderDeferredItem(item) {
           <span>${ago}</span>
         </div>
       </div>
-      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Dismiss">
+      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="不再提醒">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
     </div>`;
@@ -1002,7 +955,6 @@ function renderArchiveItem(item) {
       <span class="archive-item-date">${ago}</span>
     </div>`;
 }
-
 
 /* ----------------------------------------------------------------
    MAIN DASHBOARD RENDERER
@@ -1149,8 +1101,8 @@ async function renderStaticDashboard() {
   const openTabsSectionTitle = document.getElementById('openTabsSectionTitle');
 
   if (domainGroups.length > 0 && openTabsSection) {
-    if (openTabsSectionTitle) openTabsSectionTitle.textContent = 'Open tabs';
-    openTabsSectionCount.innerHTML = `${domainGroups.length} domain${domainGroups.length !== 1 ? 's' : ''} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} Close all ${realTabs.length} tabs</button>`;
+    if (openTabsSectionTitle) openTabsSectionTitle.textContent = '活动标签概览';
+    openTabsSectionCount.innerHTML = `标签组数量：${domainGroups.length} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} 一键关闭所有标签</button>`;
     openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
     openTabsSection.style.display = 'block';
   } else if (openTabsSection) {
@@ -1171,7 +1123,6 @@ async function renderStaticDashboard() {
 async function renderDashboard() {
   await renderStaticDashboard();
 }
-
 
 /* ----------------------------------------------------------------
    EVENT HANDLERS — using event delegation
@@ -1260,7 +1211,7 @@ document.addEventListener('click', async (e) => {
     const statTabs = document.getElementById('statTabs');
     if (statTabs) statTabs.textContent = openTabs.length;
 
-    showToast('Tab closed');
+    showToast('已关闭标签');
     return;
   }
 
@@ -1368,8 +1319,8 @@ document.addEventListener('click', async (e) => {
     const idx = domainGroups.indexOf(group);
     if (idx !== -1) domainGroups.splice(idx, 1);
 
-    const groupLabel = group.domain === '__landing-pages__' ? 'Homepages' : (group.label || friendlyDomain(group.domain));
-    showToast(`Closed ${urls.length} tab${urls.length !== 1 ? 's' : ''} from ${groupLabel}`);
+    const groupLabel = group.domain === '__landing-pages__' ? '起始页' : (group.label || friendlyDomain(group.domain));
+    showToast(`已关闭 ${groupLabel} 的全部标签`);
 
     const statTabs = document.getElementById('statTabs');
     if (statTabs) statTabs.textContent = openTabs.length;
@@ -1408,7 +1359,7 @@ document.addEventListener('click', async (e) => {
       card.classList.add('has-neutral-bar');
     }
 
-    showToast('Closed duplicates, kept one copy each');
+    showToast('已关闭重复项');
     return;
   }
 
@@ -1428,7 +1379,32 @@ document.addEventListener('click', async (e) => {
       animateCardOut(c);
     });
 
-    showToast('All tabs closed. Fresh start.');
+    showToast('所有标签已清理');
+    return;
+  }
+ 
+  // ---- Restore last closed tab in background ----
+  if (action === 'restore-tab') {
+    try {
+      const recentlyClosed = await chrome.sessions.getRecentlyClosed({ maxResults: 1 });
+      if (recentlyClosed && recentlyClosed.length > 0) {
+        const session = recentlyClosed[0];
+        if (session.tab) {
+          // It's a single tab
+          await chrome.tabs.create({ url: session.tab.url, active: false });
+        } else if (session.window) {
+          // It's a whole window (restore first tab of it in background)
+          const firstTab = session.window.tabs[0];
+          if (firstTab) await chrome.tabs.create({ url: firstTab.url, active: false });
+        }
+        showToast('已在后台恢复标签');
+      } else {
+        showToast('没有可恢复的标签');
+      }
+    } catch (err) {
+      console.warn('[tab-out] Failed to restore in background:', err);
+      showToast('恢复失败');
+    }
     return;
   }
 });
@@ -1469,14 +1445,23 @@ document.addEventListener('input', async (e) => {
     );
 
     archiveList.innerHTML = results.map(item => renderArchiveItem(item)).join('')
-      || '<div style="font-size:12px;color:var(--muted);padding:8px 0">No results</div>';
+      || '<div style="font-size:12px;color:var(--muted);padding:8px 0">没有找到匹配的标签</div>';
   } catch (err) {
     console.warn('[tab-out] Archive search failed:', err);
   }
 });
 
-
 /* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
+// ---- Real-time auto-refresh when tabs change ----
+chrome.tabs.onCreated.addListener(() => fetchOpenTabs().then(renderDashboard));
+chrome.tabs.onRemoved.addListener(() => fetchOpenTabs().then(renderDashboard));
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  // Only refresh when loading is complete or the user changes URL/Title
+  if (changeInfo.status === 'complete' || changeInfo.url || changeInfo.title) {
+    fetchOpenTabs().then(renderDashboard);
+  }
+});
+
 renderDashboard();

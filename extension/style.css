@@ -23,7 +23,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   background: var(--paper);
   color: var(--ink);
   min-height: 100vh;
@@ -65,7 +65,7 @@ header {
 }
 
 .header-left h1 {
-  font-family: 'Newsreader', serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-weight: 300;
   font-size: 28px;
   letter-spacing: -0.5px;
@@ -127,7 +127,7 @@ header {
 }
 
 .tab-cleanup-btn {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   padding: 8px 20px;
@@ -194,7 +194,7 @@ header {
 }
 
 .section-header h2 {
-  font-family: 'Newsreader', serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-weight: 400;
   font-size: 18px;
   font-style: italic;
@@ -280,16 +280,18 @@ header {
   min-width: 0;
 }
 
-/* Hide the right-side meta (page count) — info is already in the badge */
-.mission-meta {
-  display: none;
-}
-
 .mission-top {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.mission-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
 
@@ -357,6 +359,7 @@ header {
 
 /* ---- Tab row — each tab is a full-width row with favicon, title, and actions ---- */
 .page-chip {
+  font-family: 'Times New Roman', "KaiTi", "STKaiti", "楷体", system-ui, sans-serif;
   font-size: 13px;
   color: var(--ink);
   background: transparent;
@@ -475,21 +478,6 @@ header {
   margin-bottom: 4px;
 }
 
-.mission-page-count {
-  font-size: 20px;
-  font-family: 'Newsreader', serif;
-  font-weight: 300;
-  color: var(--ink);
-  line-height: 1;
-}
-
-.mission-page-label {
-  font-size: 10px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
 /* ---- Actions row ---- */
 .actions {
   display: flex;
@@ -499,7 +487,7 @@ header {
 
 .action-btn {
   font-size: 11px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-weight: 500;
   padding: 5px 14px;
   border-radius: 4px;
@@ -572,7 +560,7 @@ header {
   transform: translateX(-50%) translateY(80px);
   background: var(--ink);
   color: var(--paper);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 500;
   padding: 12px 24px;
@@ -618,7 +606,7 @@ footer {
 }
 
 .stat-num {
-  font-family: 'Newsreader', serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 28px;
   font-weight: 300;
   color: var(--ink);
@@ -640,7 +628,7 @@ footer {
 }
 
 .refresh-btn {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: var(--accent-amber);
@@ -677,7 +665,6 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 .deferred-list .deferred-item:nth-child(4) { animation-delay: 0.2s; }
 .deferred-list .deferred-item:nth-child(5) { animation-delay: 0.25s; }
 .deferred-column .section-header { animation: fadeUp 0.5s ease 0.1s both; }
-
 
 /* ================================================================
    STATIC DEFAULT VIEW — new elements added for "AI on demand"
@@ -749,7 +736,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .empty-title {
-  font-family: 'Newsreader', serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 20px;
   font-weight: 400;
   font-style: italic;
@@ -763,7 +750,6 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   font-weight: 400;
   letter-spacing: 0.3px;
 }
-
 
 /* ================================================================
    UPDATE BANNER
@@ -833,7 +819,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 /* "Update now" button — small, filled, sage green */
 .update-banner-btn {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: #fff;
@@ -882,7 +868,6 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   width: 14px;
   height: 14px;
 }
-
 
 /* ================================================================
    SAVED FOR LATER — Checklist Column + Archive
@@ -1059,7 +1044,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .archive-toggle {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: var(--muted);
@@ -1100,7 +1085,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .archive-search {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 12px;
   width: 100%;
   padding: 8px 12px;
