@@ -529,9 +529,21 @@ const FRIENDLY_DOMAINS = {
   'www.linkedin.com':     '领英',
   'google.com':           'Google',
   'www.google.com':       'Google',
+  'baidu.com':            '百度',
+  'www.baidu.com':        '百度',
+  'bing.com':             '必应 Bing',
+  'www.bing.com':         '必应 Bing',
+  'cn.bing.com':          '必应 Bing',
+  'sogou.com':            '搜狗',
+  'www.sogou.com':        '搜狗',
+  'so.com':               '360搜索',
+  'www.so.com':           '360搜索',
+  'duckduckgo.com':       'DuckDuckGo',
   'mail.google.com':      'Gmail',
   'docs.google.com':      'Google 文档',
   'drive.google.com':     'Google 云盘',
+  'workspace.google.com': 'Google Workspace',
+  'grrrs.sdkdns1.com':    'SDK VPN',
   'gemini.google.com':    'Gemini',
   'chatgpt.com':          'ChatGPT',
   'www.chatgpt.com':      'ChatGPT',
@@ -557,12 +569,350 @@ const FRIENDLY_DOMAINS = {
   'www.producthunt.com':  'Product Hunt',
   'xiaohongshu.com':      '小红书',
   'www.xiaohongshu.com':  '小红书',
+  'deepseek.com':         'DeepSeek',
+  'www.deepseek.com':     'DeepSeek',
+  'chat.deepseek.com':    'DeepSeek',
+  'tongyi.aliyun.com':    '通义千问',
+  'qianwen.com':          '通义千问',
+  'www.qianwen.com':      '通义千问',
+  'yiyan.baidu.com':      '文心一言',
+  'doubao.com':           '豆包',
+  'www.doubao.com':       '豆包',
+  'yuanbao.tencent.com':  '元宝',
+  'kimi.moonshot.cn':     'Kimi',
+  'chatglm.cn':           '智谱清言',
+  'www.chatglm.cn':       '智谱清言',
+  'hailuoai.com':         'MiniMax',
+  'www.hailuoai.com':     'MiniMax',
+  'tiangong.cn':          '天工 AI',
+  'www.tiangong.cn':      '天工 AI',
+  'juejin.cn':            '掘金',
+  'csdn.net':             'CSDN',
+  'blog.csdn.net':        'CSDN',
+  'cnblogs.com':          '博客园',
+  'www.cnblogs.com':      '博客园',
+  'oschina.net':          '开源中国',
+  'www.oschina.net':      '开源中国',
+  'segmentfault.com':     'SegmentFault',
+  'www.segmentfault.com': 'SegmentFault',
+  'gitee.com':            'Gitee',
+  'v2ex.com':             'V2EX',
+  'www.v2ex.com':         'V2EX',
+  'leetcode.cn':          'LeetCode 力扣',
+  'feishu.cn':            '飞书',
+  'www.feishu.cn':        '飞书',
+  'dingtalk.com':         '钉钉',
+  'www.dingtalk.com':     '钉钉',
+  'work.weixin.qq.com':   '企业微信',
+  'docs.qq.com':          '腾讯文档',
+  'yuque.com':            '语雀',
+  'www.yuque.com':        '语雀',
+  'shimo.im':             '石墨文档',
+  'weibo.com':            '微博',
+  'www.weibo.com':        '微博',
+  'zhihu.com':            '知乎',
+  'www.zhihu.com':        '知乎',
+  'douban.com':           '豆瓣',
+  'www.douban.com':       '豆瓣',
+  'tieba.baidu.com':      '百度贴吧',
+  'maimai.cn':            '脉脉',
+  'www.maimai.cn':        '脉脉',
+  'hupu.com':             '虎扑',
+  'bbs.hupu.com':         '虎扑',
+  'bbs.nga.cn':           'NGA玩家社区',
+  'nga.178.com':          'NGA玩家社区',
+  'web.okjike.com':       '即刻',
+  'bilibili.com':         'Bilibili',
+  'www.bilibili.com':     'Bilibili',
+  'iqiyi.com':            '爱奇艺',
+  'www.iqiyi.com':        '爱奇艺',
+  'v.qq.com':             '腾讯视频',
+  'youku.com':            '优酷',
+  'www.youku.com':        '优酷',
+  'mgtv.com':             '芒果TV',
+  'www.mgtv.com':         '芒果TV',
+  'douyin.com':           '抖音',
+  'www.douyin.com':       '抖音',
+  'kuaishou.com':         '快手',
+  'www.kuaishou.com':     '快手',
+  'music.163.com':        '网易云音乐',
+  'y.qq.com':             'QQ音乐',
+  'douyu.com':            '斗鱼',
+  'www.douyu.com':        '斗鱼',
+  'huya.com':             '虎牙',
+  'www.huya.com':         '虎牙',
+  'cnki.net':             '知网',
+  'www.cnki.net':         '知网',
+  'wanfangdata.com.cn':   '万方数据',
+  'www.wanfangdata.com.cn': '万方数据',
+  'xueshu.baidu.com':     '百度学术',
+  'baike.baidu.com':      '百度百科',
+  'scholar.google.com':   'Google Scholar',
+  'researchgate.net':     'ResearchGate',
+  'www.researchgate.net': 'ResearchGate',
+  'taobao.com':           '淘宝',
+  'www.taobao.com':       '淘宝',
+  's.taobao.com':         '淘宝',
+  'jd.com':               '京东',
+  'www.jd.com':           '京东',
+  'tmall.com':            '天猫',
+  'www.tmall.com':        '天猫',
+  'smzdm.com':            '什么值得买',
+  'www.smzdm.com':        '什么值得买',
+  'pinduoduo.com':        '拼多多',
+  'www.pinduoduo.com':    '拼多多',
   'local-files':          '本地文件',
 };
 
+const CATEGORY_MAP = {
+  'google.com': '🔍 搜索引擎',
+  'www.google.com': '🔍 搜索引擎',
+  'baidu.com': '🔍 搜索引擎',
+  'www.baidu.com': '🔍 搜索引擎',
+  'bing.com': '🔍 搜索引擎',
+  'www.bing.com': '🔍 搜索引擎',
+  'cn.bing.com': '🔍 搜索引擎',
+  'sogou.com': '🔍 搜索引擎',
+  'www.sogou.com': '🔍 搜索引擎',
+  'so.com': '🔍 搜索引擎',
+  'www.so.com': '🔍 搜索引擎',
+  'duckduckgo.com': '🔍 搜索引擎',
+
+  'chatgpt.com': '🤖 AI 与大模型',
+  'www.chatgpt.com': '🤖 AI 与大模型',
+  'chat.openai.com': '🤖 AI 与大模型',
+  'claude.ai': '🤖 AI 与大模型',
+  'www.claude.ai': '🤖 AI 与大模型',
+  'code.claude.com': '🤖 AI 与大模型',
+  'gemini.google.com': '🤖 AI 与大模型',
+  'huggingface.co': '🤖 AI 与大模型',
+  'www.huggingface.co': '🤖 AI 与大模型',
+  'deepseek.com': '🤖 AI 与大模型',
+  'www.deepseek.com': '🤖 AI 与大模型',
+  'chat.deepseek.com': '🤖 AI 与大模型',
+  'tongyi.aliyun.com': '🤖 AI 与大模型',
+  'qianwen.com': '🤖 AI 与大模型',
+  'www.qianwen.com': '🤖 AI 与大模型',
+  'yiyan.baidu.com': '🤖 AI 与大模型',
+  'doubao.com': '🤖 AI 与大模型',
+  'www.doubao.com': '🤖 AI 与大模型',
+  'yuanbao.tencent.com': '🤖 AI 与大模型',
+  'kimi.moonshot.cn': '🤖 AI 与大模型',
+  'chatglm.cn': '🤖 AI 与大模型',
+  'www.chatglm.cn': '🤖 AI 与大模型',
+  'hailuoai.com': '🤖 AI 与大模型',
+  'www.hailuoai.com': '🤖 AI 与大模型',
+  'tiangong.cn': '🤖 AI 与大模型',
+  'www.tiangong.cn': '🤖 AI 与大模型',
+
+  'github.com': '👨‍💻 开发技术生态',
+  'www.github.com': '👨‍💻 开发技术生态',
+  'gist.github.com': '👨‍💻 开发技术生态',
+  'vercel.com': '👨‍💻 开发技术生态',
+  'www.vercel.com': '👨‍💻 开发技术生态',
+  'npmjs.com': '👨‍💻 开发技术生态',
+  'www.npmjs.com': '👨‍💻 开发技术生态',
+  'juejin.cn': '👨‍💻 开发技术生态',
+  'csdn.net': '👨‍💻 开发技术生态',
+  'blog.csdn.net': '👨‍💻 开发技术生态',
+  'cnblogs.com': '👨‍💻 开发技术生态',
+  'www.cnblogs.com': '👨‍💻 开发技术生态',
+  'oschina.net': '👨‍💻 开发技术生态',
+  'www.oschina.net': '👨‍💻 开发技术生态',
+  'segmentfault.com': '👨‍💻 开发技术生态',
+  'www.segmentfault.com': '👨‍💻 开发技术生态',
+  'gitee.com': '👨‍💻 开发技术生态',
+  'v2ex.com': '👨‍💻 开发技术生态',
+  'www.v2ex.com': '👨‍💻 开发技术生态',
+  'leetcode.cn': '👨‍💻 开发技术生态',
+
+  'mail.google.com': '💼 办公效率工具',
+  'workspace.google.com': '💼 办公效率工具',
+  'docs.google.com': '💼 办公效率工具',
+  'drive.google.com': '💼 办公效率工具',
+  'calendar.google.com': '💼 办公效率工具',
+  'feishu.cn': '💼 办公效率工具',
+  'www.feishu.cn': '💼 办公效率工具',
+  'dingtalk.com': '💼 办公效率工具',
+  'www.dingtalk.com': '💼 办公效率工具',
+  'work.weixin.qq.com': '💼 办公效率工具',
+  'docs.qq.com': '💼 办公效率工具',
+  'yuque.com': '💼 办公效率工具',
+  'www.yuque.com': '💼 办公效率工具',
+  'shimo.im': '💼 办公效率工具',
+
+  'x.com': '💬 社交互动',
+  'www.x.com': '💬 社交互动',
+  'twitter.com': '💬 社交互动',
+  'www.twitter.com': '💬 社交互动',
+  'linkedin.com': '💬 社交互动',
+  'www.linkedin.com': '💬 社交互动',
+  'xiaohongshu.com': '💬 社交互动',
+  'www.xiaohongshu.com': '💬 社交互动',
+  'weibo.com': '💬 社交互动',
+  'www.weibo.com': '💬 社交互动',
+  'zhihu.com': '💬 社交互动',
+  'www.zhihu.com': '💬 社交互动',
+  'douban.com': '💬 社交互动',
+  'www.douban.com': '💬 社交互动',
+  'tieba.baidu.com': '💬 社交互动',
+  'maimai.cn': '💬 社交互动',
+  'www.maimai.cn': '💬 社交互动',
+  'hupu.com': '💬 社交互动',
+  'bbs.hupu.com': '💬 社交互动',
+  'bbs.nga.cn': '💬 社交互动',
+  'nga.178.com': '💬 社交互动',
+  'web.okjike.com': '💬 社交互动',
+
+  'youtube.com': '🍿 影音娱乐',
+  'www.youtube.com': '🍿 影音娱乐',
+  'music.youtube.com': '🍿 影音娱乐',
+  'netflix.com': '🍿 影音娱乐',
+  'www.netflix.com': '🍿 影音娱乐',
+  'bilibili.com': '🍿 影音娱乐',
+  'www.bilibili.com': '🍿 影音娱乐',
+  'iqiyi.com': '🍿 影音娱乐',
+  'www.iqiyi.com': '🍿 影音娱乐',
+  'v.qq.com': '🍿 影音娱乐',
+  'youku.com': '🍿 影音娱乐',
+  'www.youku.com': '🍿 影音娱乐',
+  'mgtv.com': '🍿 影音娱乐',
+  'www.mgtv.com': '🍿 影音娱乐',
+  'douyin.com': '🍿 影音娱乐',
+  'www.douyin.com': '🍿 影音娱乐',
+  'kuaishou.com': '🍿 影音娱乐',
+  'www.kuaishou.com': '🍿 影音娱乐',
+  'music.163.com': '🍿 影音娱乐',
+  'y.qq.com': '🍿 影音娱乐',
+  'douyu.com': '🍿 影音娱乐',
+  'www.douyu.com': '🍿 影音娱乐',
+  'huya.com': '🍿 影音娱乐',
+  'www.huya.com': '🍿 影音娱乐',
+
+  'wikipedia.org': '📚 学术知识',
+  'en.wikipedia.org': '📚 学术知识',
+  'arxiv.org': '📚 学术知识',
+  'www.arxiv.org': '📚 学术知识',
+  'cnki.net': '📚 学术知识',
+  'www.cnki.net': '📚 学术知识',
+  'wanfangdata.com.cn': '📚 学术知识',
+  'www.wanfangdata.com.cn': '📚 学术知识',
+  'xueshu.baidu.com': '📚 学术知识',
+  'baike.baidu.com': '📚 学术知识',
+  'scholar.google.com': '📚 学术知识',
+  'researchgate.net': '📚 学术知识',
+  'www.researchgate.net': '📚 学术知识',
+
+  'amazon.com': '🛒 购物消费',
+  'www.amazon.com': '🛒 购物消费',
+  'producthunt.com': '🛒 购物消费',
+  'www.producthunt.com': '🛒 购物消费',
+  'taobao.com': '🛒 购物消费',
+  'www.taobao.com': '🛒 购物消费',
+  's.taobao.com': '🛒 购物消费',
+  'jd.com': '🛒 购物消费',
+  'www.jd.com': '🛒 购物消费',
+  'tmall.com': '🛒 购物消费',
+  'www.tmall.com': '🛒 购物消费',
+  'smzdm.com': '🛒 购物消费',
+  'www.smzdm.com': '🛒 购物消费',
+  'pinduoduo.com': '🛒 购物消费',
+  'www.pinduoduo.com': '🛒 购物消费',
+
+  'local-files': '💻 本地文件'
+};
+
+const CATEGORY_ORDER = [
+  '🏠 导航主页',
+  '🔍 搜索引擎',
+  '🤖 AI 与大模型',
+  '👨‍💻 开发技术生态',
+  '💼 办公效率工具',
+  '💬 社交互动',
+  '🍿 影音娱乐',
+  '📚 学术知识',
+  '🛒 购物消费',
+  '💻 本地文件',
+  '🌐 未分类项'
+];
+
+function buildGroupId(key) {
+  return 'domain-' + key.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+}
+
+function getGroupPrimaryHostname(group) {
+  return group.hostnames && group.hostnames.length > 0 ? group.hostnames[0] : group.domain;
+}
+
+function getGroupDisplayName(group) {
+  if (group.domain === '__landing-pages__') return '导航主页';
+  return group.displayName || friendlyDomain(getGroupPrimaryHostname(group));
+}
+
+function getGroupCategory(group) {
+  if (group.domain === '__landing-pages__') return '🏠 导航主页';
+
+  const hostnames = group.hostnames && group.hostnames.length > 0 ? group.hostnames : [group.domain];
+  for (const hostname of hostnames) {
+    const category = matchDomain(hostname, CATEGORY_MAP);
+    if (category) return category;
+    if (hostname.endsWith('.github.io')) return '👨‍💻 开发技术生态';
+  }
+
+  return '🌐 未分类项';
+}
+
+function createGroup(groupMap, key, { domain, displayName, closeMode }) {
+  if (!groupMap[key]) {
+    groupMap[key] = {
+      domain,
+      displayName,
+      closeMode,
+      hostnames: [],
+      tabs: [],
+    };
+  }
+  return groupMap[key];
+}
+
+function addHostnameToGroup(group, hostname) {
+  if (!hostname) return;
+  if (!group.hostnames.includes(hostname)) group.hostnames.push(hostname);
+}
+
+function getGroupKey(hostname) {
+  const displayName = friendlyDomain(hostname);
+  if (displayName && displayName !== hostname) {
+    return {
+      key: '__display__/' + displayName,
+      displayName,
+    };
+  }
+
+  return {
+    key: hostname,
+    displayName,
+  };
+}
+
+function matchDomain(hostname, mapObj) {
+  if (!hostname) return null;
+  if (mapObj[hostname]) return mapObj[hostname];
+  
+  const parts = hostname.split('.');
+  while (parts.length > 2) {
+    parts.shift();
+    const baseDomain = parts.join('.');
+    if (mapObj[baseDomain]) return mapObj[baseDomain];
+  }
+  return null;
+}
+
 function friendlyDomain(hostname) {
   if (!hostname) return '';
-  if (FRIENDLY_DOMAINS[hostname]) return FRIENDLY_DOMAINS[hostname];
+  const friendly = matchDomain(hostname, FRIENDLY_DOMAINS);
+  if (friendly) return friendly;
+  
   if (hostname.endsWith('.github.io')) {
     return capitalize(hostname.replace('.github.io', '')) + ' (GitHub Pages)';
   }
@@ -759,8 +1109,7 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
 function renderDomainCard(group) {
   const tabs      = group.tabs || [];
   const tabCount  = tabs.length;
-  const isLanding = group.domain === '__landing-pages__';
-  const stableId  = 'domain-' + group.domain.replace(/[^a-z0-9]/g, '-');
+  const stableId  = buildGroupId(group.domain);
 
   // Count duplicates (exact URL match)
   const urlCounts = {};
@@ -791,7 +1140,7 @@ function renderDomainCard(group) {
   const extraCount  = uniqueTabs.length - visibleTabs.length;
 
   const pageChips = visibleTabs.map(tab => {
-    let label = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), group.domain);
+    let label = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), getGroupPrimaryHostname(group));
     // For localhost tabs, prepend port number so you can tell projects apart
     try {
       const parsed = new URL(tab.url);
@@ -833,7 +1182,7 @@ function renderDomainCard(group) {
       <div class="status-bar"></div>
       <div class="mission-content">
         <div class="mission-top">
-          <span class="mission-name">${isLanding ? '起始页' : (group.label || friendlyDomain(group.domain))}</span>
+          <span class="mission-name">${getGroupDisplayName(group)}</span>
           <div style="margin-left: auto; display: flex; align-items: center;">
             <button class="action-btn close-tabs" data-action="close-domain-tabs" data-domain-id="${stableId}" style="font-size:10px; padding:2px 8px;">
               ${ICONS.close} 关闭全部标签
@@ -953,6 +1302,9 @@ function renderArchiveItem(item) {
         ${item.title || item.url}
       </a>
       <span class="archive-item-date">${ago}</span>
+      <button class="archive-item-dismiss" data-action="dismiss-archive-item" data-deferred-id="${item.id}" title="删除记录">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+      </button>
     </div>`;
 }
 
@@ -992,6 +1344,7 @@ async function renderStaticDashboard() {
     { hostname: 'www.linkedin.com',    pathExact: ['/'] },
     { hostname: 'github.com',          pathExact: ['/'] },
     { hostname: 'www.youtube.com',     pathExact: ['/'] },
+    { hostname: 'grrrs.sdkdns1.com',   pathExact: ['/'] },
     // Merge personal patterns from config.local.js (if it exists)
     ...(typeof LOCAL_LANDING_PAGE_PATTERNS !== 'undefined' ? LOCAL_LANDING_PAGE_PATTERNS : []),
   ];
@@ -1046,49 +1399,71 @@ async function renderStaticDashboard() {
         continue;
       }
 
-      // Check custom group rules first (e.g. merge subdomains, split by path)
-      const customRule = matchCustomGroup(tab.url);
-      if (customRule) {
-        const key = customRule.groupKey;
-        if (!groupMap[key]) groupMap[key] = { domain: key, label: customRule.groupLabel, tabs: [] };
-        groupMap[key].tabs.push(tab);
-        continue;
-      }
-
       let hostname;
       if (tab.url && tab.url.startsWith('file://')) {
         hostname = 'local-files';
       } else {
-        hostname = new URL(tab.url).hostname;
+        hostname = new URL(tab.url).hostname.replace(/^www\./, '');
       }
       if (!hostname) continue;
 
-      if (!groupMap[hostname]) groupMap[hostname] = { domain: hostname, tabs: [] };
-      groupMap[hostname].tabs.push(tab);
+      const customRule = matchCustomGroup(tab.url);
+      if (customRule) {
+        const key = customRule.groupKey;
+        const group = createGroup(groupMap, key, {
+          domain: key,
+          displayName: customRule.groupLabel,
+          closeMode: 'exact',
+        });
+        addHostnameToGroup(group, hostname);
+        group.tabs.push(tab);
+        continue;
+      }
+
+      const groupInfo = getGroupKey(hostname);
+      const group = createGroup(groupMap, groupInfo.key, {
+        domain: groupInfo.key,
+        displayName: groupInfo.displayName,
+        closeMode: 'hostname',
+      });
+      addHostnameToGroup(group, hostname);
+      group.tabs.push(tab);
     } catch {
       // Skip malformed URLs
     }
   }
 
   if (landingTabs.length > 0) {
-    groupMap['__landing-pages__'] = { domain: '__landing-pages__', tabs: landingTabs };
+    groupMap['__landing-pages__'] = {
+      domain: '__landing-pages__',
+      displayName: '导航主页',
+      closeMode: 'exact',
+      hostnames: landingTabs.map(tab => {
+        try {
+          return new URL(tab.url).hostname.replace(/^www\./, '');
+        } catch {
+          return '';
+        }
+      }).filter(Boolean),
+      tabs: landingTabs,
+    };
   }
 
   // Sort: landing pages first, then domains from landing page sites, then by tab count
   // Collect exact hostnames and suffix patterns for priority sorting
   const landingHostnames = new Set(LANDING_PAGE_PATTERNS.map(p => p.hostname).filter(Boolean));
   const landingSuffixes = LANDING_PAGE_PATTERNS.map(p => p.hostnameEndsWith).filter(Boolean);
-  function isLandingDomain(domain) {
-    if (landingHostnames.has(domain)) return true;
-    return landingSuffixes.some(s => domain.endsWith(s));
+  function isLandingDomain(group) {
+    const hostnames = group.hostnames && group.hostnames.length > 0 ? group.hostnames : [group.domain];
+    return hostnames.some(domain => landingHostnames.has(domain) || landingSuffixes.some(s => domain.endsWith(s)));
   }
   domainGroups = Object.values(groupMap).sort((a, b) => {
     const aIsLanding = a.domain === '__landing-pages__';
     const bIsLanding = b.domain === '__landing-pages__';
     if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
 
-    const aIsPriority = isLandingDomain(a.domain);
-    const bIsPriority = isLandingDomain(b.domain);
+    const aIsPriority = isLandingDomain(a);
+    const bIsPriority = isLandingDomain(b);
     if (aIsPriority !== bIsPriority) return aIsPriority ? -1 : 1;
 
     return b.tabs.length - a.tabs.length;
@@ -1103,7 +1478,36 @@ async function renderStaticDashboard() {
   if (domainGroups.length > 0 && openTabsSection) {
     if (openTabsSectionTitle) openTabsSectionTitle.textContent = '活动标签概览';
     openTabsSectionCount.innerHTML = `标签组数量：${domainGroups.length} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} 一键关闭所有标签</button>`;
-    openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
+    domainGroups.forEach(g => {
+      g.category = getGroupCategory(g);
+    });
+
+    const categoryGroups = {};
+    CATEGORY_ORDER.forEach(c => categoryGroups[c] = []);
+    domainGroups.forEach(g => {
+      if (!categoryGroups[g.category]) categoryGroups[g.category] = [];
+      categoryGroups[g.category].push(g);
+    });
+
+    let html = '';
+    CATEGORY_ORDER.forEach(category => {
+      const groups = categoryGroups[category];
+      if (!groups || groups.length === 0) return;
+      
+      // If it's the Homepages category, don't show the H3 primary title
+      const showTitle = category !== '🏠 导航主页';
+      
+      html += `
+        <div class="category-module">
+          ${showTitle ? `<h3 class="category-title">${category}</h3>` : ''}
+          <div class="category-missions">
+            ${groups.map(g => renderDomainCard(g)).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    openTabsMissionsEl.innerHTML = html;
     openTabsSection.style.display = 'block';
   } else if (openTabsSection) {
     openTabsSection.style.display = 'none';
@@ -1291,18 +1695,34 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  // ---- Dismiss an archived tab ----
+  if (action === 'dismiss-archive-item') {
+    const id = actionEl.dataset.deferredId;
+    if (!id) return;
+
+    await dismissSavedTab(id);
+
+    const item = actionEl.closest('.archive-item');
+    if (item) {
+      item.style.transition = 'opacity 0.2s, transform 0.2s';
+      item.style.opacity = '0';
+      item.style.transform = 'translateX(10px)';
+      setTimeout(() => {
+        item.remove();
+        renderDeferredColumn();
+      }, 200);
+    }
+    return;
+  }
+
   // ---- Close all tabs in a domain group ----
   if (action === 'close-domain-tabs') {
     const domainId = actionEl.dataset.domainId;
-    const group    = domainGroups.find(g => {
-      return 'domain-' + g.domain.replace(/[^a-z0-9]/g, '-') === domainId;
-    });
+    const group    = domainGroups.find(g => buildGroupId(g.domain) === domainId);
     if (!group) return;
 
     const urls      = group.tabs.map(t => t.url);
-    // Landing pages and custom groups (whose domain key isn't a real hostname)
-    // must use exact URL matching to avoid closing unrelated tabs
-    const useExact  = group.domain === '__landing-pages__' || !!group.label;
+    const useExact  = group.closeMode === 'exact';
 
     if (useExact) {
       await closeTabsExact(urls);
@@ -1319,7 +1739,7 @@ document.addEventListener('click', async (e) => {
     const idx = domainGroups.indexOf(group);
     if (idx !== -1) domainGroups.splice(idx, 1);
 
-    const groupLabel = group.domain === '__landing-pages__' ? '起始页' : (group.label || friendlyDomain(group.domain));
+    const groupLabel = getGroupDisplayName(group);
     showToast(`已关闭 ${groupLabel} 的全部标签`);
 
     const statTabs = document.getElementById('statTabs');
