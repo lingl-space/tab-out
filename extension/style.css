@@ -37,7 +37,7 @@ body {
   z-index: 1;
   width: 100%;
   margin: 0 auto;
-  padding: 48px 48px 32px;
+  padding: 24px 48px 16px;
   min-height: 100vh;
   height: 100vh;
   display: flex;
@@ -46,15 +46,19 @@ body {
 }
 
 .top-shell {
+  display: flex;
+  align-items: center;
+  gap: 32px;
   flex-shrink: 0;
+  margin-bottom: 16px;
+  padding-bottom: 0;
 }
 
 .content-scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-top: 8px;
+  overflow: hidden;
+  padding-top: 0;
   padding-bottom: 24px;
 }
 
@@ -68,9 +72,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 48px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--warm-gray);
+  flex-shrink: 0;
 }
 
 .header-left h1 {
@@ -90,22 +92,68 @@ header {
   text-transform: uppercase;
 }
 
+/* ---- Fixed navigation icons ---- */
+.quick-nav {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quick-nav-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--warm-gray);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--accent-slate);
+  opacity: 1;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.quick-nav-item:hover {
+  background: var(--warm-gray);
+  border-color: var(--muted);
+}
+
+.quick-nav-item:focus-visible {
+  outline: 2px solid var(--accent-slate);
+  outline-offset: 3px;
+}
+
+.quick-nav-item svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* ---- Tab cleanup banner ---- */
 .tab-cleanup-banner {
+  flex: 0 1 640px;
   background: linear-gradient(135deg, rgba(200, 113, 58, 0.04), rgba(200, 113, 58, 0.09));
   border: 1px solid rgba(200, 113, 58, 0.18);
   border-radius: 8px;
-  padding: 16px 24px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 16px;
+  min-width: 0;
+  margin-left: auto;
 }
 
 .tab-cleanup-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  min-width: 0;
 }
 
 .tab-cleanup-icon {
@@ -136,6 +184,7 @@ header {
 }
 
 .tab-cleanup-btn {
+  flex-shrink: 0;
   font-family: 'Times New Roman', 'DM Sans', system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
@@ -199,7 +248,7 @@ header {
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 .section-header h2 {
@@ -225,31 +274,43 @@ header {
   white-space: nowrap;
 }
 
-/* ---- Category Modules ---- */
-.category-module {
-  margin-bottom: 24px;
-}
-
-.category-title {
-  font-family: 'DM Sans', "Times New Roman", "KaiTi", system-ui, sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  margin-bottom: 12px;
-  padding-left: 4px;
-  letter-spacing: 0.2px;
-}
-
-.category-missions {
-  columns: 280px;
-  column-gap: 12px;
-}
-
 /* ---- Mission Cards ---- */
 .missions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 40px;
+}
+
+.missions:not(:has(.unconfigured-sites)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.configured-sites {
+  min-width: 0;
   columns: 280px;
   column-gap: 12px;
-  margin-bottom: 40px;
+}
+
+.unconfigured-sites {
+  min-width: 0;
+}
+
+.unconfigured-site-section + .unconfigured-site-section {
+  border-top: 1px solid var(--warm-gray);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.unconfigured-site-host {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
 }
 
 .mission-card {
@@ -325,10 +386,29 @@ header {
 }
 
 .mission-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-weight: 600;
   font-size: 15px;
   color: var(--ink);
   letter-spacing: -0.2px;
+}
+
+.site-title-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--muted);
+}
+
+.site-title-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .mission-tag {
@@ -617,8 +697,8 @@ header {
 
 /* ---- Footer ---- */
 footer {
-  margin-top: 32px;
-  padding-top: 14px;
+  margin-top: 16px;
+  padding-top: 8px;
   border-top: 1px solid var(--warm-gray);
   display: flex;
   justify-content: space-between;
@@ -905,30 +985,97 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 /* ---- Two-column layout ---- */
 .dashboard-columns {
   display: flex;
+  height: 100%;
+  min-height: 0;
   gap: 32px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 /* Open tabs column keeps the grid layout */
 .dashboard-columns .active-section {
   flex: 1;
-  min-width: 600px;
+  min-width: 0;
 }
 
 /* Saved for later column — fixed width on the right, scrolls independently */
+.deferred-column > .section-header {
+  gap: 6px;
+}
+
+.cache-todos {
+  margin-left: auto;
+  flex-shrink: 0;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+}
+
+.cache-todos svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cache-todos:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.cache-todos:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .deferred-column {
   width: 280px;
   flex-shrink: 0;
-  position: sticky;
-  top: 32px;
-  max-height: calc(100vh - 64px);
+}
+
+.dashboard-columns .active-section,
+.deferred-column {
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.dashboard-columns .active-section::-webkit-scrollbar,
+.deferred-column::-webkit-scrollbar {
+  display: none;
+}
+
+.dashboard-columns > .active-section > .section-header,
+.deferred-column > .section-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--paper);
+  padding-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 /* On narrow screens, stack vertically */
 @media (max-width: 800px) {
+  .top-shell {
+    gap: 16px;
+  }
+
+  .tab-cleanup-banner {
+    gap: 12px;
+    padding: 6px 12px;
+  }
+
+  .tab-cleanup-icon {
+    display: none;
+  }
+
+  .tab-cleanup-btn {
+    padding: 8px 12px;
+  }
+
   .container {
-    padding-bottom: 24px;
+    padding-bottom: 16px;
   }
 
   .dashboard-columns {
@@ -937,9 +1084,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
   .deferred-column {
     width: 100%;
-    position: static;
-    max-height: none;
-    overflow: visible;
+    flex: 1;
   }
 }
 

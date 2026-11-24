@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,11 +28,13 @@
     </div>
   </header>
 
+  <nav class="quick-nav" id="quickNav" aria-label="快捷导航"></nav>
+
   <!-- ================================================================
        TAB OUT DUPES BANNER — appears when you have extra Tab Out tabs open
        Hidden by default; app.js shows it when dupeTabOutCount > 1
        ================================================================ -->
-  <div class="tab-cleanup-banner" id="tabOutDupeBanner" style="display:none">
+  <div class="tab-cleanup-banner" id="tabOutDupeBanner" style="visibility:hidden">
     <div class="tab-cleanup-left">
       <div class="tab-cleanup-icon">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -53,7 +55,7 @@
          MAIN CONTENT AREA — two-column layout
          Left: open tabs (domain/mission cards)
          Right: saved for later checklist
-         The right column only renders when it has items (JS controls this)
+         The right column remains visible, including when empty
          ================================================================ -->
     <div class="dashboard-columns" id="dashboardColumns">
 
@@ -68,18 +70,21 @@
       </div>
 
       <!-- RIGHT COLUMN: Saved for Later checklist -->
-      <div class="deferred-column" id="deferredColumn" style="display:none">
+      <div class="deferred-column" id="deferredColumn">
         <div class="section-header">
-          <h2>Todo List</h2>
+          <h2>待办清单</h2>
           <div class="section-line"></div>
-          <div class="section-count" id="deferredCount"></div>
+          <div class="section-count" id="deferredCount">0 项</div>
+          <button class="action-btn cache-todos" id="cacheTodos" data-action="cache-todos" disabled aria-label="缓存待办为书签文件，下载完成后自动归档" title="将全部待办的标题和链接导出为书签 HTML，下载完成后自动归档">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m-4-4 4 4 4-4M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>
+          </button>
         </div>
 
         <!-- Active checklist items — injected by renderDeferredList() in app.js -->
         <div class="deferred-list" id="deferredList"></div>
 
         <!-- Empty state — shown when no active deferred tabs -->
-        <div class="deferred-empty" id="deferredEmpty" style="display:none">
+        <div class="deferred-empty" id="deferredEmpty">
           暂无待浏览内容，享受当下。
         </div>
 
@@ -107,13 +112,13 @@
     <div class="footer-stats">
       <div class="stat">
         <div class="stat-num" id="statTabs">—</div>
-        <div class="stat-label">个已打开标签</div>
+        <div class="stat-label">个可管理标签</div>
       </div>
     </div>
     <div class="footer-controls">
       <button class="refresh-btn" data-action="restore-tab" style="color:var(--accent-sage); margin-bottom: 8px;">
         <svg style="width:14px;height:14px;vertical-align:middle;margin-right:4px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
-        撤回：恢复关闭的标签
+        恢复最近关闭的标签或窗口
       </button>
     </div>
     <div class="last-refresh">
@@ -135,11 +140,12 @@
   <span id="toastText"></span>
 </div>
 
-<!-- Personal config (gitignored) — defines LOCAL_LANDING_PAGE_PATTERNS etc. -->
+<!-- Optional personal config (gitignored) — defines LOCAL_CUSTOM_GROUPS. -->
 <!-- If the file doesn't exist, that's fine — app.js uses sensible defaults. -->
-<script src="config.local.js" onerror="/* no personal config, that's fine */"></script>
+<script src="config.local.js" ></script>
 
 <!-- Main dashboard logic — loads last so the DOM is ready -->
+<script src="rules.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

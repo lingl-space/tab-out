@@ -7,7 +7,7 @@
 
    What this file does:
    1. Reads open browser tabs directly via chrome.tabs.query()
-   2. Groups tabs by domain with a landing pages category
+   2. Groups tabs by site, excluding navigation homepages
    3. Renders domain cards, banners, and stats
    4. Handles all user actions (close tabs, save for later, focus tab)
    5. Stores "Saved for Later" tabs in chrome.storage.local (no server)
@@ -24,6 +24,7 @@
 
 // All open tabs — populated by fetchOpenTabs()
 let openTabs = [];
+let tabFetchVersion = 0;
 
 /**
  * fetchOpenTabs()
@@ -32,113 +33,43 @@ let openTabs = [];
  * Sets the extensionId flag so we can identify Tab Out's own pages.
  */
 async function fetchOpenTabs() {
+  const version = ++tabFetchVersion;
   try {
     const extensionId = chrome.runtime.id;
     // The new URL for this page is now index.html (not newtab.html)
     const newtabUrl = `chrome-extension://${extensionId}/index.html`;
 
     const tabs = await chrome.tabs.query({});
+    if (version !== tabFetchVersion) return;
     openTabs = tabs.map(t => ({
       id:       t.id,
       url:      t.url,
       title:    t.title,
       windowId: t.windowId,
       active:   t.active,
+      lastAccessed: t.lastAccessed,
       // Flag Tab Out's own pages so we can detect duplicate new tabs
       isTabOut: t.url === newtabUrl || t.url === 'chrome://newtab/',
     }));
   } catch {
     // chrome.tabs API unavailable (shouldn't happen in an extension page)
-    openTabs = [];
+    if (version === tabFetchVersion) openTabs = [];
   }
 }
 
-/**
- * closeTabsByUrls(urls)
- *
- * Closes all open tabs whose hostname matches any of the given URLs.
- * After closing, re-fetches the tab list to keep our state accurate.
- *
- * Special case: file:// URLs are matched exactly (they have no hostname).
- */
-async function closeTabsByUrls(urls) {
-  if (!urls || urls.length === 0) return;
-
-  // Separate file:// URLs (exact match) from regular URLs (hostname match)
-  const targetHostnames = [];
-  const exactUrls = new Set();
-
-  for (const u of urls) {
-    if (u.startsWith('file://')) {
-      exactUrls.add(u);
-    } else {
-      try { targetHostnames.push(new URL(u).hostname); }
-      catch { /* skip unparseable */ }
-    }
-  }
-
-  const allTabs = await chrome.tabs.query({});
-  const toClose = allTabs
-    .filter(tab => {
-      const tabUrl = tab.url || '';
-      if (tabUrl.startsWith('file://') && exactUrls.has(tabUrl)) return true;
-      try {
-        const tabHostname = new URL(tabUrl).hostname;
-        return tabHostname && targetHostnames.includes(tabHostname);
-      } catch { return false; }
-    })
-    .map(tab => tab.id);
-
-  if (toClose.length > 0) await chrome.tabs.remove(toClose);
+/** Close only the selected IDs that still exist, across all windows. */
+async function closeTabsByIds(tabIds) {
+  const targets = new Set(tabIds);
+  const tabs = await chrome.tabs.query({});
+  const ids = tabs.filter(tab => targets.has(tab.id)).map(tab => tab.id);
+  if (ids.length > 0) await chrome.tabs.remove(ids);
   await fetchOpenTabs();
 }
 
-/**
- * closeTabsExact(urls)
- *
- * Closes tabs by exact URL match (not hostname). Used for landing pages
- * so closing "Gmail inbox" doesn't also close individual email threads.
- */
-async function closeTabsExact(urls) {
-  if (!urls || urls.length === 0) return;
-  const urlSet = new Set(urls);
-  const allTabs = await chrome.tabs.query({});
-  const toClose = allTabs.filter(t => urlSet.has(t.url)).map(t => t.id);
-  if (toClose.length > 0) await chrome.tabs.remove(toClose);
-  await fetchOpenTabs();
-}
-
-/**
- * focusTab(url)
- *
- * Switches Chrome to the tab with the given URL (exact match first,
- * then hostname fallback). Also brings the window to the front.
- */
-async function focusTab(url) {
-  if (!url) return;
-  const allTabs = await chrome.tabs.query({});
-  const currentWindow = await chrome.windows.getCurrent();
-
-  // Try exact URL match first
-  let matches = allTabs.filter(t => t.url === url);
-
-  // Fall back to hostname match
-  if (matches.length === 0) {
-    try {
-      const targetHost = new URL(url).hostname;
-      matches = allTabs.filter(t => {
-        try { return new URL(t.url).hostname === targetHost; }
-        catch { return false; }
-      });
-    } catch {}
-  }
-
-  if (matches.length === 0) return;
-
-  // Prefer a match in a different window so it actually switches windows
-  const match = matches.find(t => t.windowId !== currentWindow.id) || matches[0];
-  await chrome.tabs.update(match.id, { active: true });
-  await chrome.windows.update(match.windowId, { focused: true });
+/** Activate this exact tab, never a different page on the same domain. */
+async function focusTab(tabId) {
+  const tab = await chrome.tabs.update(tabId, { active: true });
+  await chrome.windows.update(tab.windowId, { focused: true });
 }
 
 /**
@@ -206,7 +137,7 @@ async function closeTabOutDupes() {
    Data shape stored under the "deferred" key:
    [
      {
-       id: "1712345678901",          // timestamp-based unique ID
+       id: "1712345678901",          // legacy IDs retained; new items use UUIDs
        url: "https://example.com",
        title: "Example Page",
        savedAt: "2026-04-04T10:00:00.000Z",  // ISO date string
@@ -224,16 +155,13 @@ async function closeTabOutDupes() {
  * @param {{ url: string, title: string }} tab
  */
 async function saveTabForLater(tab) {
-  const { deferred = [] } = await chrome.storage.local.get('deferred');
-  deferred.push({
-    id:        Date.now().toString(),
-    url:       tab.url,
-    title:     tab.title,
-    savedAt:   new Date().toISOString(),
-    completed: false,
-    dismissed: false,
-  });
-  await chrome.storage.local.set({ deferred });
+  await updateSavedTabs({ action: 'save', tab });
+}
+
+// All pages send writes to the background worker's shared queue.
+async function updateSavedTabs(change) {
+  const response = await chrome.runtime.sendMessage({ type: 'update-saved-tabs', ...change });
+  if (!response.ok) throw new Error(response.error);
 }
 
 /**
@@ -244,11 +172,12 @@ async function saveTabForLater(tab) {
  * Splits into active (not completed) and archived (completed).
  */
 async function getSavedTabs() {
-  const { deferred = [] } = await chrome.storage.local.get('deferred');
+  const { deferred = [], pendingBookmarkExport } = await chrome.storage.local.get(['deferred', 'pendingBookmarkExport']);
   const visible = deferred.filter(t => !t.dismissed);
   return {
     active:   visible.filter(t => !t.completed),
     archived: visible.filter(t => t.completed),
+    pendingBookmarkExport,
   };
 }
 
@@ -258,13 +187,7 @@ async function getSavedTabs() {
  * Marks a saved tab as completed (checked off). It moves to the archive.
  */
 async function checkOffSavedTab(id) {
-  const { deferred = [] } = await chrome.storage.local.get('deferred');
-  const tab = deferred.find(t => t.id === id);
-  if (tab) {
-    tab.completed = true;
-    tab.completedAt = new Date().toISOString();
-    await chrome.storage.local.set({ deferred });
-  }
+  await updateSavedTabs({ action: 'complete', id });
 }
 
 /**
@@ -273,12 +196,7 @@ async function checkOffSavedTab(id) {
  * Marks a saved tab as dismissed (removed from all lists).
  */
 async function dismissSavedTab(id) {
-  const { deferred = [] } = await chrome.storage.local.get('deferred');
-  const tab = deferred.find(t => t.id === id);
-  if (tab) {
-    tab.dismissed = true;
-    await chrome.storage.local.set({ deferred });
-  }
+  await updateSavedTabs({ action: 'dismiss', id });
 }
 
 /* ----------------------------------------------------------------
@@ -514,330 +432,18 @@ function getDateDisplay() {
    ---------------------------------------------------------------- */
 
 // Map of known hostnames → friendly display names.
-const FRIENDLY_DOMAINS = {
-  'github.com':           'GitHub',
-  'www.github.com':       'GitHub',
-  'gist.github.com':      'GitHub Gist',
-  'youtube.com':          'YouTube',
-  'www.youtube.com':      'YouTube',
-  'music.youtube.com':    'YouTube',
-  'x.com':                '推特',
-  'www.x.com':            '推特',
-  'twitter.com':          '推特',
-  'www.twitter.com':      '推特',
-  'linkedin.com':         '领英',
-  'www.linkedin.com':     '领英',
-  'google.com':           'Google',
-  'www.google.com':       'Google',
-  'baidu.com':            '百度',
-  'www.baidu.com':        '百度',
-  'bing.com':             '必应 Bing',
-  'www.bing.com':         '必应 Bing',
-  'cn.bing.com':          '必应 Bing',
-  'sogou.com':            '搜狗',
-  'www.sogou.com':        '搜狗',
-  'so.com':               '360搜索',
-  'www.so.com':           '360搜索',
-  'duckduckgo.com':       'DuckDuckGo',
-  'mail.google.com':      'Gmail',
-  'docs.google.com':      'Google 文档',
-  'drive.google.com':     'Google 云盘',
-  'workspace.google.com': 'Google Workspace',
-  'grrrs.sdkdns1.com':    'SDK VPN',
-  'gemini.google.com':    'Gemini',
-  'chatgpt.com':          'ChatGPT',
-  'www.chatgpt.com':      'ChatGPT',
-  'chat.openai.com':      'ChatGPT',
-  'claude.ai':            'Claude',
-  'www.claude.ai':        'Claude',
-  'code.claude.com':      'Claude Code',
-  'wikipedia.org':        '维基百科',
-  'en.wikipedia.org':     '维基百科',
-  'amazon.com':           '亚马逊',
-  'www.amazon.com':       '亚马逊',
-  'netflix.com':          '网飞',
-  'www.netflix.com':      '网飞',
-  'vercel.com':           'Vercel',
-  'www.vercel.com':       'Vercel',
-  'npmjs.com':            'npm',
-  'www.npmjs.com':        'npm',
-  'arxiv.org':            'arXiv',
-  'www.arxiv.org':        'arXiv',
-  'huggingface.co':       'Hugging Face',
-  'www.huggingface.co':   'Hugging Face',
-  'producthunt.com':      'Product Hunt',
-  'www.producthunt.com':  'Product Hunt',
-  'xiaohongshu.com':      '小红书',
-  'www.xiaohongshu.com':  '小红书',
-  'deepseek.com':         'DeepSeek',
-  'www.deepseek.com':     'DeepSeek',
-  'chat.deepseek.com':    'DeepSeek',
-  'tongyi.aliyun.com':    '通义千问',
-  'qianwen.com':          '通义千问',
-  'www.qianwen.com':      '通义千问',
-  'yiyan.baidu.com':      '文心一言',
-  'doubao.com':           '豆包',
-  'www.doubao.com':       '豆包',
-  'yuanbao.tencent.com':  '元宝',
-  'kimi.moonshot.cn':     'Kimi',
-  'chatglm.cn':           '智谱清言',
-  'www.chatglm.cn':       '智谱清言',
-  'hailuoai.com':         'MiniMax',
-  'www.hailuoai.com':     'MiniMax',
-  'tiangong.cn':          '天工 AI',
-  'www.tiangong.cn':      '天工 AI',
-  'juejin.cn':            '掘金',
-  'csdn.net':             'CSDN',
-  'blog.csdn.net':        'CSDN',
-  'cnblogs.com':          '博客园',
-  'www.cnblogs.com':      '博客园',
-  'oschina.net':          '开源中国',
-  'www.oschina.net':      '开源中国',
-  'segmentfault.com':     'SegmentFault',
-  'www.segmentfault.com': 'SegmentFault',
-  'gitee.com':            'Gitee',
-  'v2ex.com':             'V2EX',
-  'www.v2ex.com':         'V2EX',
-  'leetcode.cn':          'LeetCode 力扣',
-  'feishu.cn':            '飞书',
-  'www.feishu.cn':        '飞书',
-  'dingtalk.com':         '钉钉',
-  'www.dingtalk.com':     '钉钉',
-  'work.weixin.qq.com':   '企业微信',
-  'docs.qq.com':          '腾讯文档',
-  'yuque.com':            '语雀',
-  'www.yuque.com':        '语雀',
-  'shimo.im':             '石墨文档',
-  'weibo.com':            '微博',
-  'www.weibo.com':        '微博',
-  'zhihu.com':            '知乎',
-  'www.zhihu.com':        '知乎',
-  'douban.com':           '豆瓣',
-  'www.douban.com':       '豆瓣',
-  'tieba.baidu.com':      '百度贴吧',
-  'maimai.cn':            '脉脉',
-  'www.maimai.cn':        '脉脉',
-  'hupu.com':             '虎扑',
-  'bbs.hupu.com':         '虎扑',
-  'bbs.nga.cn':           'NGA玩家社区',
-  'nga.178.com':          'NGA玩家社区',
-  'web.okjike.com':       '即刻',
-  'bilibili.com':         'Bilibili',
-  'www.bilibili.com':     'Bilibili',
-  'iqiyi.com':            '爱奇艺',
-  'www.iqiyi.com':        '爱奇艺',
-  'v.qq.com':             '腾讯视频',
-  'youku.com':            '优酷',
-  'www.youku.com':        '优酷',
-  'mgtv.com':             '芒果TV',
-  'www.mgtv.com':         '芒果TV',
-  'douyin.com':           '抖音',
-  'www.douyin.com':       '抖音',
-  'kuaishou.com':         '快手',
-  'www.kuaishou.com':     '快手',
-  'music.163.com':        '网易云音乐',
-  'y.qq.com':             'QQ音乐',
-  'douyu.com':            '斗鱼',
-  'www.douyu.com':        '斗鱼',
-  'huya.com':             '虎牙',
-  'www.huya.com':         '虎牙',
-  'cnki.net':             '知网',
-  'www.cnki.net':         '知网',
-  'wanfangdata.com.cn':   '万方数据',
-  'www.wanfangdata.com.cn': '万方数据',
-  'xueshu.baidu.com':     '百度学术',
-  'baike.baidu.com':      '百度百科',
-  'scholar.google.com':   'Google Scholar',
-  'researchgate.net':     'ResearchGate',
-  'www.researchgate.net': 'ResearchGate',
-  'taobao.com':           '淘宝',
-  'www.taobao.com':       '淘宝',
-  's.taobao.com':         '淘宝',
-  'jd.com':               '京东',
-  'www.jd.com':           '京东',
-  'tmall.com':            '天猫',
-  'www.tmall.com':        '天猫',
-  'smzdm.com':            '什么值得买',
-  'www.smzdm.com':        '什么值得买',
-  'pinduoduo.com':        '拼多多',
-  'www.pinduoduo.com':    '拼多多',
-  'local-files':          '本地文件',
+const NAV_ICONS = {
+  "baidu": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><text x=\"12\" y=\"12\" dy=\".35em\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"17\" font-family=\"system-ui, sans-serif\" font-weight=\"600\">百</text></svg>",
+  "translate": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><text x=\"12\" y=\"12\" dy=\".35em\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"17\" font-family=\"system-ui, sans-serif\" font-weight=\"600\">译</text></svg>",
+  "qianwen": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><text x=\"12\" y=\"12\" dy=\".35em\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"11\" font-family=\"system-ui, sans-serif\" font-weight=\"600\">千问</text></svg>",
+  "github": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><text x=\"12\" y=\"12\" dy=\".35em\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"11\" font-family=\"system-ui, sans-serif\" font-weight=\"600\">GH</text></svg>",
+  "huggingface": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><text x=\"12\" y=\"12\" dy=\".35em\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"11\" font-family=\"system-ui, sans-serif\" font-weight=\"600\">HF</text></svg>",
+  "x": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><text x=\"12\" y=\"12\" dy=\".35em\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"17\" font-family=\"system-ui, sans-serif\" font-weight=\"600\">X</text></svg>",
+  "youtube": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"4\" fill=\"currentColor\"/><path d=\"m10 9 6 3-6 3V9Z\" fill=\"var(--card-bg)\"/></svg>"
 };
-
-const CATEGORY_MAP = {
-  'google.com': '🔍 搜索引擎',
-  'www.google.com': '🔍 搜索引擎',
-  'baidu.com': '🔍 搜索引擎',
-  'www.baidu.com': '🔍 搜索引擎',
-  'bing.com': '🔍 搜索引擎',
-  'www.bing.com': '🔍 搜索引擎',
-  'cn.bing.com': '🔍 搜索引擎',
-  'sogou.com': '🔍 搜索引擎',
-  'www.sogou.com': '🔍 搜索引擎',
-  'so.com': '🔍 搜索引擎',
-  'www.so.com': '🔍 搜索引擎',
-  'duckduckgo.com': '🔍 搜索引擎',
-
-  'chatgpt.com': '🤖 AI 与大模型',
-  'www.chatgpt.com': '🤖 AI 与大模型',
-  'chat.openai.com': '🤖 AI 与大模型',
-  'claude.ai': '🤖 AI 与大模型',
-  'www.claude.ai': '🤖 AI 与大模型',
-  'code.claude.com': '🤖 AI 与大模型',
-  'gemini.google.com': '🤖 AI 与大模型',
-  'huggingface.co': '🤖 AI 与大模型',
-  'www.huggingface.co': '🤖 AI 与大模型',
-  'deepseek.com': '🤖 AI 与大模型',
-  'www.deepseek.com': '🤖 AI 与大模型',
-  'chat.deepseek.com': '🤖 AI 与大模型',
-  'tongyi.aliyun.com': '🤖 AI 与大模型',
-  'qianwen.com': '🤖 AI 与大模型',
-  'www.qianwen.com': '🤖 AI 与大模型',
-  'yiyan.baidu.com': '🤖 AI 与大模型',
-  'doubao.com': '🤖 AI 与大模型',
-  'www.doubao.com': '🤖 AI 与大模型',
-  'yuanbao.tencent.com': '🤖 AI 与大模型',
-  'kimi.moonshot.cn': '🤖 AI 与大模型',
-  'chatglm.cn': '🤖 AI 与大模型',
-  'www.chatglm.cn': '🤖 AI 与大模型',
-  'hailuoai.com': '🤖 AI 与大模型',
-  'www.hailuoai.com': '🤖 AI 与大模型',
-  'tiangong.cn': '🤖 AI 与大模型',
-  'www.tiangong.cn': '🤖 AI 与大模型',
-
-  'github.com': '👨‍💻 开发技术生态',
-  'www.github.com': '👨‍💻 开发技术生态',
-  'gist.github.com': '👨‍💻 开发技术生态',
-  'vercel.com': '👨‍💻 开发技术生态',
-  'www.vercel.com': '👨‍💻 开发技术生态',
-  'npmjs.com': '👨‍💻 开发技术生态',
-  'www.npmjs.com': '👨‍💻 开发技术生态',
-  'juejin.cn': '👨‍💻 开发技术生态',
-  'csdn.net': '👨‍💻 开发技术生态',
-  'blog.csdn.net': '👨‍💻 开发技术生态',
-  'cnblogs.com': '👨‍💻 开发技术生态',
-  'www.cnblogs.com': '👨‍💻 开发技术生态',
-  'oschina.net': '👨‍💻 开发技术生态',
-  'www.oschina.net': '👨‍💻 开发技术生态',
-  'segmentfault.com': '👨‍💻 开发技术生态',
-  'www.segmentfault.com': '👨‍💻 开发技术生态',
-  'gitee.com': '👨‍💻 开发技术生态',
-  'v2ex.com': '👨‍💻 开发技术生态',
-  'www.v2ex.com': '👨‍💻 开发技术生态',
-  'leetcode.cn': '👨‍💻 开发技术生态',
-
-  'mail.google.com': '💼 办公效率工具',
-  'workspace.google.com': '💼 办公效率工具',
-  'docs.google.com': '💼 办公效率工具',
-  'drive.google.com': '💼 办公效率工具',
-  'calendar.google.com': '💼 办公效率工具',
-  'feishu.cn': '💼 办公效率工具',
-  'www.feishu.cn': '💼 办公效率工具',
-  'dingtalk.com': '💼 办公效率工具',
-  'www.dingtalk.com': '💼 办公效率工具',
-  'work.weixin.qq.com': '💼 办公效率工具',
-  'docs.qq.com': '💼 办公效率工具',
-  'yuque.com': '💼 办公效率工具',
-  'www.yuque.com': '💼 办公效率工具',
-  'shimo.im': '💼 办公效率工具',
-
-  'x.com': '💬 社交互动',
-  'www.x.com': '💬 社交互动',
-  'twitter.com': '💬 社交互动',
-  'www.twitter.com': '💬 社交互动',
-  'linkedin.com': '💬 社交互动',
-  'www.linkedin.com': '💬 社交互动',
-  'xiaohongshu.com': '💬 社交互动',
-  'www.xiaohongshu.com': '💬 社交互动',
-  'weibo.com': '💬 社交互动',
-  'www.weibo.com': '💬 社交互动',
-  'zhihu.com': '💬 社交互动',
-  'www.zhihu.com': '💬 社交互动',
-  'douban.com': '💬 社交互动',
-  'www.douban.com': '💬 社交互动',
-  'tieba.baidu.com': '💬 社交互动',
-  'maimai.cn': '💬 社交互动',
-  'www.maimai.cn': '💬 社交互动',
-  'hupu.com': '💬 社交互动',
-  'bbs.hupu.com': '💬 社交互动',
-  'bbs.nga.cn': '💬 社交互动',
-  'nga.178.com': '💬 社交互动',
-  'web.okjike.com': '💬 社交互动',
-
-  'youtube.com': '🍿 影音娱乐',
-  'www.youtube.com': '🍿 影音娱乐',
-  'music.youtube.com': '🍿 影音娱乐',
-  'netflix.com': '🍿 影音娱乐',
-  'www.netflix.com': '🍿 影音娱乐',
-  'bilibili.com': '🍿 影音娱乐',
-  'www.bilibili.com': '🍿 影音娱乐',
-  'iqiyi.com': '🍿 影音娱乐',
-  'www.iqiyi.com': '🍿 影音娱乐',
-  'v.qq.com': '🍿 影音娱乐',
-  'youku.com': '🍿 影音娱乐',
-  'www.youku.com': '🍿 影音娱乐',
-  'mgtv.com': '🍿 影音娱乐',
-  'www.mgtv.com': '🍿 影音娱乐',
-  'douyin.com': '🍿 影音娱乐',
-  'www.douyin.com': '🍿 影音娱乐',
-  'kuaishou.com': '🍿 影音娱乐',
-  'www.kuaishou.com': '🍿 影音娱乐',
-  'music.163.com': '🍿 影音娱乐',
-  'y.qq.com': '🍿 影音娱乐',
-  'douyu.com': '🍿 影音娱乐',
-  'www.douyu.com': '🍿 影音娱乐',
-  'huya.com': '🍿 影音娱乐',
-  'www.huya.com': '🍿 影音娱乐',
-
-  'wikipedia.org': '📚 学术知识',
-  'en.wikipedia.org': '📚 学术知识',
-  'arxiv.org': '📚 学术知识',
-  'www.arxiv.org': '📚 学术知识',
-  'cnki.net': '📚 学术知识',
-  'www.cnki.net': '📚 学术知识',
-  'wanfangdata.com.cn': '📚 学术知识',
-  'www.wanfangdata.com.cn': '📚 学术知识',
-  'xueshu.baidu.com': '📚 学术知识',
-  'baike.baidu.com': '📚 学术知识',
-  'scholar.google.com': '📚 学术知识',
-  'researchgate.net': '📚 学术知识',
-  'www.researchgate.net': '📚 学术知识',
-
-  'amazon.com': '🛒 购物消费',
-  'www.amazon.com': '🛒 购物消费',
-  'producthunt.com': '🛒 购物消费',
-  'www.producthunt.com': '🛒 购物消费',
-  'taobao.com': '🛒 购物消费',
-  'www.taobao.com': '🛒 购物消费',
-  's.taobao.com': '🛒 购物消费',
-  'jd.com': '🛒 购物消费',
-  'www.jd.com': '🛒 购物消费',
-  'tmall.com': '🛒 购物消费',
-  'www.tmall.com': '🛒 购物消费',
-  'smzdm.com': '🛒 购物消费',
-  'www.smzdm.com': '🛒 购物消费',
-  'pinduoduo.com': '🛒 购物消费',
-  'www.pinduoduo.com': '🛒 购物消费',
-
-  'local-files': '💻 本地文件'
-};
-
-const CATEGORY_ORDER = [
-  '🏠 导航主页',
-  '🔍 搜索引擎',
-  '🤖 AI 与大模型',
-  '👨‍💻 开发技术生态',
-  '💼 办公效率工具',
-  '💬 社交互动',
-  '🍿 影音娱乐',
-  '📚 学术知识',
-  '🛒 购物消费',
-  '💻 本地文件',
-  '🌐 未分类项'
-];
 
 function buildGroupId(key) {
-  return 'domain-' + key.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+  return 'domain-' + encodeURIComponent(key);
 }
 
 function getGroupPrimaryHostname(group) {
@@ -849,25 +455,13 @@ function getGroupDisplayName(group) {
   return group.displayName || friendlyDomain(getGroupPrimaryHostname(group));
 }
 
-function getGroupCategory(group) {
-  if (group.domain === '__landing-pages__') return '🏠 导航主页';
-
-  const hostnames = group.hostnames && group.hostnames.length > 0 ? group.hostnames : [group.domain];
-  for (const hostname of hostnames) {
-    const category = matchDomain(hostname, CATEGORY_MAP);
-    if (category) return category;
-    if (hostname.endsWith('.github.io')) return '👨‍💻 开发技术生态';
-  }
-
-  return '🌐 未分类项';
-}
-
-function createGroup(groupMap, key, { domain, displayName, closeMode }) {
+function createGroup(groupMap, key, { domain, displayName, configured = false, siteId }) {
   if (!groupMap[key]) {
     groupMap[key] = {
       domain,
       displayName,
-      closeMode,
+      configured,
+      siteId,
       hostnames: [],
       tabs: [],
     };
@@ -881,37 +475,55 @@ function addHostnameToGroup(group, hostname) {
 }
 
 function getGroupKey(hostname) {
-  const displayName = friendlyDomain(hostname);
-  if (displayName && displayName !== hostname) {
-    return {
-      key: '__display__/' + displayName,
-      displayName,
-    };
-  }
-
+  const site = findSite(hostname);
   return {
-    key: hostname,
-    displayName,
+    key: site ? 'site/' + site.id : 'host/' + hostname,
+    displayName: site ? site.name : friendlyDomain(hostname),
+    configured: Boolean(site),
+    siteId: site?.id,
   };
 }
 
-function matchDomain(hostname, mapObj) {
+function findSite(hostname) {
   if (!hostname) return null;
-  if (mapObj[hostname]) return mapObj[hostname];
-  
-  const parts = hostname.split('.');
-  while (parts.length > 2) {
-    parts.shift();
-    const baseDomain = parts.join('.');
-    if (mapObj[baseDomain]) return mapObj[baseDomain];
+  hostname = hostname.toLowerCase();
+  const exact = SITES.find(site => site.hosts.includes(hostname));
+  if (exact) return exact;
+  return SITES.filter(site => site.includeSubdomains)
+    .flatMap(site => site.hosts.map(host => ({ site, host })))
+    .filter(({ host }) => hostname.endsWith('.' + host))
+    .sort((a, b) => b.host.length - a.host.length)[0]?.site || null;
+}
+
+function isNavigationPage(url) {
+  try {
+    const parsed = new URL(url);
+    const site = findSite(parsed.hostname);
+    const navigation = site?.navigation;
+    return Boolean(navigation
+      && navigation.excludeHosts.includes(parsed.hostname)
+      && navigation.excludePaths.includes(parsed.pathname));
+  } catch {
+    return false;
   }
-  return null;
+}
+
+function renderQuickNavigation() {
+  const nav = document.getElementById('quickNav');
+  if (!nav) return;
+  nav.innerHTML = SITES.filter(site => site.navigation)
+    .sort((a, b) => a.navigation.order - b.navigation.order)
+    .map(site => {
+      const { url, icon, label } = site.navigation;
+      const name = label || site.name;
+      return `<a class="quick-nav-item" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(name)}（新标签页打开）" title="${escapeHtml(name)}">${NAV_ICONS[icon]}</a>`;
+    }).join('');
 }
 
 function friendlyDomain(hostname) {
   if (!hostname) return '';
-  const friendly = matchDomain(hostname, FRIENDLY_DOMAINS);
-  if (friendly) return friendly;
+  const site = findSite(hostname);
+  if (site) return site.name;
   
   if (hostname.endsWith('.github.io')) {
     return capitalize(hostname.replace('.github.io', '')) + ' (GitHub Pages)';
@@ -980,7 +592,7 @@ function smartTitle(title, url) {
 
   if ((hostname === 'x.com' || hostname === 'twitter.com' || hostname === 'www.x.com') && pathname.includes('/status/')) {
     const username = pathname.split('/')[1];
-    if (username) return titleIsUrl ? `Post by @${username}` : title;
+    if (username) return titleIsUrl ? `@${username} 的帖子` : title;
   }
 
   if (hostname === 'github.com' || hostname === 'www.github.com') {
@@ -1016,6 +628,7 @@ const ICONS = {
    IN-MEMORY STORE FOR OPEN-TAB GROUPS
    ---------------------------------------------------------------- */
 let domainGroups = [];
+const expandedGroups = new Set();
 
 /* ----------------------------------------------------------------
    HELPER: filter out browser-internal pages
@@ -1031,6 +644,7 @@ function getRealTabs() {
   return openTabs.filter(t => {
     const url = t.url || '';
     return (
+      url.length > 0 &&
       !url.startsWith('chrome://') &&
       !url.startsWith('chrome-extension://') &&
       !url.startsWith('about:') &&
@@ -1054,9 +668,9 @@ function checkTabOutDupes() {
 
   if (tabOutTabs.length > 1) {
     if (countEl) countEl.textContent = tabOutTabs.length;
-    banner.style.display = 'flex';
+    banner.style.visibility = 'visible';
   } else {
-    banner.style.display = 'none';
+    banner.style.visibility = 'hidden';
   }
 }
 
@@ -1064,25 +678,40 @@ function checkTabOutDupes() {
    OVERFLOW CHIPS ("+N more" expand button in domain cards)
    ---------------------------------------------------------------- */
 
-function buildOverflowChips(hiddenTabs, urlCounts = {}) {
+// Escape dynamic text and quoted attributes before inserting HTML templates.
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char]);
+}
+
+function buildOverflowChips(hiddenTabs, urlCounts = {}, expanded = false) {
   const hiddenChips = hiddenTabs.map(tab => {
-    const label    = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), '');
+    let label = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), '');
+    try {
+      const parsed = new URL(tab.url);
+      if (parsed.hostname === 'localhost' && parsed.port) label = parsed.port + ' ' + label;
+    } catch {}
     const count    = urlCounts[tab.url] || 1;
     const dupeTag  = count > 1 ? ` <span class="chip-dupe-badge">(${count}x)</span>` : '';
     const chipClass = count > 1 ? ' chip-has-dupes' : '';
-    const safeUrl   = (tab.url || '').replace(/"/g, '&quot;');
-    const safeTitle = label.replace(/"/g, '&quot;');
+    const safeUrl   = escapeHtml(tab.url);
+    const safeTitle = escapeHtml(label);
     let domain = '';
     try { domain = new URL(tab.url).hostname; } catch {}
     const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : '';
-    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
-      ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
-      <span class="chip-text">${label}</span>${dupeTag}
+    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-id="${tab.id}" data-tab-url="${safeUrl}" title="${safeTitle}">
+      ${faviconUrl ? `<img class="chip-favicon" src="${escapeHtml(faviconUrl)}" alt="">` : ''}
+      <span class="chip-text">${safeTitle}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="保存到 Todo List">
+        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-id="${tab.id}" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="保存到待办清单">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
-        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="关闭此标签">
+        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-id="${tab.id}" data-tab-url="${safeUrl}" title="关闭此标签">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
       </div>
@@ -1090,9 +719,9 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
   }).join('');
 
   return `
-    <div class="page-chips-overflow" style="display:none">${hiddenChips}</div>
-    <div class="page-chip page-chip-overflow clickable" data-action="expand-chips">
-      <span class="chip-text">+${hiddenTabs.length} more</span>
+    <div class="page-chips-overflow" style="display:${expanded ? 'contents' : 'none'}">${hiddenChips}</div>
+    <div class="page-chip page-chip-overflow clickable" data-action="expand-chips"${expanded ? ' style="display:none"' : ''}>
+      <span class="chip-text">展开其余 ${hiddenTabs.length} 项</span>
     </div>`;
 }
 
@@ -1106,13 +735,22 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
  * Builds the HTML for one domain group card.
  * group = { domain: string, tabs: [{ url, title, id, windowId, active }] }
  */
-function renderDomainCard(group) {
+function renderSiteTitleIcon(group) {
+  const site = SITES.find(site => site.id === group.siteId);
+  const label = site?.icon || Array.from(getGroupDisplayName(group)).slice(0, 2).join('');
+  const icon = site?.navigation && NAV_ICONS[site.navigation.icon]
+    || (site?.id === 'local-files' ? ICONS.archive :
+      `<svg viewBox="0 0 24 24"><text x="12" y="12" dy=".35em" text-anchor="middle" fill="currentColor" font-size="${Array.from(label).length > 1 ? 11 : 17}" font-family="system-ui, sans-serif" font-weight="600">${escapeHtml(label)}</text></svg>`);
+  return `<span class="site-title-icon" aria-hidden="true">${icon}</span>`;
+}
+
+function renderDomainCard(group, { embedded = false } = {}) {
   const tabs      = group.tabs || [];
   const tabCount  = tabs.length;
   const stableId  = buildGroupId(group.domain);
 
   // Count duplicates (exact URL match)
-  const urlCounts = {};
+  const urlCounts = Object.create(null);
   for (const tab of tabs) urlCounts[tab.url] = (urlCounts[tab.url] || 0) + 1;
   const dupeUrls   = Object.entries(urlCounts).filter(([, c]) => c > 1);
   const hasDupes   = dupeUrls.length > 0;
@@ -1136,7 +774,7 @@ function renderDomainCard(group) {
     if (!seen.has(tab.url)) { seen.add(tab.url); uniqueTabs.push(tab); }
   }
 
-  const visibleTabs = uniqueTabs.slice(0, 8);
+  const visibleTabs = uniqueTabs.slice(0, 5);
   const extraCount  = uniqueTabs.length - visibleTabs.length;
 
   const pageChips = visibleTabs.map(tab => {
@@ -1149,24 +787,31 @@ function renderDomainCard(group) {
     const count    = urlCounts[tab.url];
     const dupeTag  = count > 1 ? ` <span class="chip-dupe-badge">(${count}x)</span>` : '';
     const chipClass = count > 1 ? ' chip-has-dupes' : '';
-    const safeUrl   = (tab.url || '').replace(/"/g, '&quot;');
-    const safeTitle = label.replace(/"/g, '&quot;');
+    const safeUrl   = escapeHtml(tab.url);
+    const safeTitle = escapeHtml(label);
     let domain = '';
     try { domain = new URL(tab.url).hostname; } catch {}
     const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : '';
-    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
-      ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
-      <span class="chip-text">${label}</span>${dupeTag}
+    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-id="${tab.id}" data-tab-url="${safeUrl}" title="${safeTitle}">
+      ${faviconUrl ? `<img class="chip-favicon" src="${escapeHtml(faviconUrl)}" alt="">` : ''}
+      <span class="chip-text">${safeTitle}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="保存到 Todo List">
+        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-id="${tab.id}" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="保存到待办清单">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
-        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="关闭此标签">
+        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-id="${tab.id}" data-tab-url="${safeUrl}" title="关闭此标签">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
       </div>
     </div>`;
-  }).join('') + (extraCount > 0 ? buildOverflowChips(uniqueTabs.slice(8), urlCounts) : '');
+  }).join('') + (extraCount > 0 ? buildOverflowChips(uniqueTabs.slice(5), urlCounts, expandedGroups.has(stableId)) : '');
+
+  if (embedded) {
+    return `<section class="unconfigured-site-section" data-domain-id="${escapeHtml(stableId)}">
+      <div class="unconfigured-site-host">${renderSiteTitleIcon(group)}${escapeHtml(getGroupPrimaryHostname(group))}</div>
+      <div class="mission-pages">${pageChips}</div>
+    </section>`;
+  }
 
   let dedupHtml = '';
   if (hasDupes) {
@@ -1178,13 +823,13 @@ function renderDomainCard(group) {
   }
 
   return `
-    <div class="mission-card domain-card ${hasDupes ? 'has-amber-bar' : 'has-neutral-bar'}" data-domain-id="${stableId}">
+    <div class="mission-card domain-card ${hasDupes ? 'has-amber-bar' : 'has-neutral-bar'}" data-domain-id="${escapeHtml(stableId)}">
       <div class="status-bar"></div>
       <div class="mission-content">
         <div class="mission-top">
-          <span class="mission-name">${getGroupDisplayName(group)}</span>
+          <span class="mission-name">${renderSiteTitleIcon(group)}${escapeHtml(getGroupDisplayName(group))}</span>
           <div style="margin-left: auto; display: flex; align-items: center;">
-            <button class="action-btn close-tabs" data-action="close-domain-tabs" data-domain-id="${stableId}" style="font-size:10px; padding:2px 8px;">
+            <button class="action-btn close-tabs" data-action="close-domain-tabs" data-domain-id="${escapeHtml(stableId)}" style="font-size:10px; padding:2px 8px;">
               ${ICONS.close} 关闭全部标签
             </button>
             ${dedupHtml}
@@ -1210,27 +855,46 @@ function renderDomainCard(group) {
  * "Saved for Later" checklist column. Shows active items as a checklist
  * and completed items in a collapsible archive.
  */
-async function renderDeferredColumn() {
+let deferredRenderPromise = null;
+let deferredRenderPending = false;
+
+function renderDeferredColumn() {
+  deferredRenderPending = true;
+  if (!deferredRenderPromise) {
+    deferredRenderPromise = (async () => {
+      try {
+        do {
+          deferredRenderPending = false;
+          await renderDeferredColumnContent();
+        } while (deferredRenderPending);
+      } finally {
+        deferredRenderPromise = null;
+      }
+    })();
+  }
+  return deferredRenderPromise;
+}
+
+async function renderDeferredColumnContent() {
   const column         = document.getElementById('deferredColumn');
   const list           = document.getElementById('deferredList');
   const empty          = document.getElementById('deferredEmpty');
   const countEl        = document.getElementById('deferredCount');
   const archiveEl      = document.getElementById('deferredArchive');
   const archiveCountEl = document.getElementById('archiveCount');
-  const archiveList    = document.getElementById('archiveList');
+  const cacheButton    = document.getElementById('cacheTodos');
 
   if (!column) return;
+  column.style.display = 'block';
 
   try {
-    const { active, archived } = await getSavedTabs();
-
-    // Hide the entire column if there's nothing to show
-    if (active.length === 0 && archived.length === 0) {
-      column.style.display = 'none';
-      return;
+    const { active, archived, pendingBookmarkExport } = await getSavedTabs();
+    if (cacheButton) {
+      cacheButton.disabled = !active.length || Boolean(pendingBookmarkExport);
+      cacheButton.title = pendingBookmarkExport ? '缓存中，下载完成后自动归档' : '将全部待办的标题和链接导出为书签 HTML，下载完成后自动归档';
     }
 
-    column.style.display = 'block';
+    empty.textContent = '暂无待浏览内容，享受当下。';
 
     // Render active checklist items
     if (active.length > 0) {
@@ -1240,14 +904,14 @@ async function renderDeferredColumn() {
       empty.style.display = 'none';
     } else {
       list.style.display = 'none';
-      countEl.textContent = '';
+      countEl.textContent = '0 项';
       empty.style.display = 'block';
     }
 
     // Render archive section
     if (archived.length > 0) {
       archiveCountEl.textContent = `(${archived.length})`;
-      archiveList.innerHTML = archived.map(item => renderArchiveItem(item)).join('');
+      renderArchiveList(archived);
       archiveEl.style.display = 'block';
     } else {
       archiveEl.style.display = 'none';
@@ -1255,7 +919,15 @@ async function renderDeferredColumn() {
 
   } catch (err) {
     console.warn('[tab-out] Could not load saved tabs:', err);
-    column.style.display = 'none';
+    if (cacheButton) {
+      cacheButton.disabled = true;
+      cacheButton.title = '待办加载失败，请刷新后重试';
+    }
+    list.style.display = 'none';
+    archiveEl.style.display = 'none';
+    countEl.textContent = '';
+    empty.textContent = '待办加载失败，请刷新页面重试。';
+    empty.style.display = 'block';
   }
 }
 
@@ -1272,18 +944,18 @@ function renderDeferredItem(item) {
   const ago = timeAgo(item.savedAt);
 
   return `
-    <div class="deferred-item" data-deferred-id="${item.id}">
-      <input type="checkbox" class="deferred-checkbox" data-action="check-deferred" data-deferred-id="${item.id}">
+    <div class="deferred-item" data-deferred-id="${escapeHtml(item.id)}">
+      <input type="checkbox" class="deferred-checkbox" data-action="check-deferred" data-deferred-id="${escapeHtml(item.id)}">
       <div class="deferred-info">
-        <a href="${item.url}" target="_blank" rel="noopener" class="deferred-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
-          <img src="${faviconUrl}" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" onerror="this.style.display='none'">${item.title || item.url}
+        <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="deferred-title" title="${escapeHtml(item.title)}">
+          <img src="${escapeHtml(faviconUrl)}" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px">${escapeHtml(item.title || item.url)}
         </a>
         <div class="deferred-meta">
-          <span>${domain}</span>
+          <span>${escapeHtml(domain)}</span>
           <span>${ago}</span>
         </div>
       </div>
-      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="不再提醒">
+      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${escapeHtml(item.id)}" title="不再提醒">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
     </div>`;
@@ -1294,15 +966,28 @@ function renderDeferredItem(item) {
  *
  * Builds HTML for one completed/archived item (simpler: just title + date).
  */
+function renderArchiveList(archived) {
+  const archiveList = document.getElementById('archiveList');
+  if (!archiveList) return;
+
+  const q = (document.getElementById('archiveSearch')?.value || '').trim().toLowerCase();
+  const results = q.length < 2 ? archived : archived.filter(item =>
+    (item.title || '').toLowerCase().includes(q) ||
+    (item.url || '').toLowerCase().includes(q)
+  );
+  archiveList.innerHTML = results.map(item => renderArchiveItem(item)).join('')
+    || (q.length >= 2 ? '<div style="font-size:12px;color:var(--muted);padding:8px 0">没有找到匹配的标签</div>' : '');
+}
+
 function renderArchiveItem(item) {
   const ago = item.completedAt ? timeAgo(item.completedAt) : timeAgo(item.savedAt);
   return `
     <div class="archive-item">
-      <a href="${item.url}" target="_blank" rel="noopener" class="archive-item-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
-        ${item.title || item.url}
+      <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="archive-item-title" title="${escapeHtml(item.title)}">
+        ${escapeHtml(item.title || item.url)}
       </a>
       <span class="archive-item-date">${ago}</span>
-      <button class="archive-item-dismiss" data-action="dismiss-archive-item" data-deferred-id="${item.id}" title="删除记录">
+      <button class="archive-item-dismiss" data-action="dismiss-archive-item" data-deferred-id="${escapeHtml(item.id)}" title="删除记录">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
     </div>`;
@@ -1334,43 +1019,9 @@ async function renderStaticDashboard() {
   await fetchOpenTabs();
   const realTabs = getRealTabs();
 
-  // --- Group tabs by domain ---
-  // Landing pages (Gmail inbox, Twitter home, etc.) get their own special group
-  // so they can be closed together without affecting content tabs on the same domain.
-  const LANDING_PAGE_PATTERNS = [
-    { hostname: 'mail.google.com', test: (p, h) =>
-        !h.includes('#inbox/') && !h.includes('#sent/') && !h.includes('#search/') },
-    { hostname: 'x.com',               pathExact: ['/home'] },
-    { hostname: 'www.linkedin.com',    pathExact: ['/'] },
-    { hostname: 'github.com',          pathExact: ['/'] },
-    { hostname: 'www.youtube.com',     pathExact: ['/'] },
-    { hostname: 'grrrs.sdkdns1.com',   pathExact: ['/'] },
-    // Merge personal patterns from config.local.js (if it exists)
-    ...(typeof LOCAL_LANDING_PAGE_PATTERNS !== 'undefined' ? LOCAL_LANDING_PAGE_PATTERNS : []),
-  ];
-
-  function isLandingPage(url) {
-    try {
-      const parsed = new URL(url);
-      return LANDING_PAGE_PATTERNS.some(p => {
-        // Support both exact hostname and suffix matching (for wildcard subdomains)
-        const hostnameMatch = p.hostname
-          ? parsed.hostname === p.hostname
-          : p.hostnameEndsWith
-            ? parsed.hostname.endsWith(p.hostnameEndsWith)
-            : false;
-        if (!hostnameMatch) return false;
-        if (p.test)       return p.test(parsed.pathname, url);
-        if (p.pathPrefix) return parsed.pathname.startsWith(p.pathPrefix);
-        if (p.pathExact)  return p.pathExact.includes(parsed.pathname);
-        return parsed.pathname === '/';
-      });
-    } catch { return false; }
-  }
-
+  // Match sites and exclude navigation homepages from the shared configuration.
   domainGroups = [];
-  const groupMap    = {};
-  const landingTabs = [];
+  const groupMap    = Object.create(null);
 
   // Custom group rules from config.local.js (if any)
   const customGroups = typeof LOCAL_CUSTOM_GROUPS !== 'undefined' ? LOCAL_CUSTOM_GROUPS : [];
@@ -1394,8 +1045,7 @@ async function renderStaticDashboard() {
 
   for (const tab of realTabs) {
     try {
-      if (isLandingPage(tab.url)) {
-        landingTabs.push(tab);
+      if (isNavigationPage(tab.url)) {
         continue;
       }
 
@@ -1409,11 +1059,11 @@ async function renderStaticDashboard() {
 
       const customRule = matchCustomGroup(tab.url);
       if (customRule) {
-        const key = customRule.groupKey;
+        const key = 'custom/' + customRule.groupKey;
         const group = createGroup(groupMap, key, {
           domain: key,
           displayName: customRule.groupLabel,
-          closeMode: 'exact',
+          configured: true,
         });
         addHostnameToGroup(group, hostname);
         group.tabs.push(tab);
@@ -1424,7 +1074,8 @@ async function renderStaticDashboard() {
       const group = createGroup(groupMap, groupInfo.key, {
         domain: groupInfo.key,
         displayName: groupInfo.displayName,
-        closeMode: 'hostname',
+        configured: groupInfo.configured,
+        siteId: groupInfo.siteId,
       });
       addHostnameToGroup(group, hostname);
       group.tabs.push(tab);
@@ -1433,39 +1084,12 @@ async function renderStaticDashboard() {
     }
   }
 
-  if (landingTabs.length > 0) {
-    groupMap['__landing-pages__'] = {
-      domain: '__landing-pages__',
-      displayName: '导航主页',
-      closeMode: 'exact',
-      hostnames: landingTabs.map(tab => {
-        try {
-          return new URL(tab.url).hostname.replace(/^www\./, '');
-        } catch {
-          return '';
-        }
-      }).filter(Boolean),
-      tabs: landingTabs,
-    };
-  }
-
-  // Sort: landing pages first, then domains from landing page sites, then by tab count
-  // Collect exact hostnames and suffix patterns for priority sorting
-  const landingHostnames = new Set(LANDING_PAGE_PATTERNS.map(p => p.hostname).filter(Boolean));
-  const landingSuffixes = LANDING_PAGE_PATTERNS.map(p => p.hostnameEndsWith).filter(Boolean);
-  function isLandingDomain(group) {
-    const hostnames = group.hostnames && group.hostnames.length > 0 ? group.hostnames : [group.domain];
-    return hostnames.some(domain => landingHostnames.has(domain) || landingSuffixes.some(s => domain.endsWith(s)));
-  }
   domainGroups = Object.values(groupMap).sort((a, b) => {
-    const aIsLanding = a.domain === '__landing-pages__';
-    const bIsLanding = b.domain === '__landing-pages__';
-    if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
-
-    const aIsPriority = isLandingDomain(a);
-    const bIsPriority = isLandingDomain(b);
-    if (aIsPriority !== bIsPriority) return aIsPriority ? -1 : 1;
-
+    if (a.configured !== b.configured) return a.configured ? -1 : 1;
+    if (a.configured) {
+      return getGroupDisplayName(a).localeCompare(getGroupDisplayName(b), 'zh-CN', { sensitivity: 'base', numeric: true })
+        || a.domain.localeCompare(b.domain);
+    }
     return b.tabs.length - a.tabs.length;
   });
 
@@ -1477,37 +1101,22 @@ async function renderStaticDashboard() {
 
   if (domainGroups.length > 0 && openTabsSection) {
     if (openTabsSectionTitle) openTabsSectionTitle.textContent = '活动标签概览';
-    openTabsSectionCount.innerHTML = `标签组数量：${domainGroups.length} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} 一键关闭所有标签</button>`;
-    domainGroups.forEach(g => {
-      g.category = getGroupCategory(g);
-    });
-
-    const categoryGroups = {};
-    CATEGORY_ORDER.forEach(c => categoryGroups[c] = []);
-    domainGroups.forEach(g => {
-      if (!categoryGroups[g.category]) categoryGroups[g.category] = [];
-      categoryGroups[g.category].push(g);
-    });
-
-    let html = '';
-    CATEGORY_ORDER.forEach(category => {
-      const groups = categoryGroups[category];
-      if (!groups || groups.length === 0) return;
-      
-      // If it's the Homepages category, don't show the H3 primary title
-      const showTitle = category !== '🏠 导航主页';
-      
-      html += `
-        <div class="category-module">
-          ${showTitle ? `<h3 class="category-title">${category}</h3>` : ''}
-          <div class="category-missions">
-            ${groups.map(g => renderDomainCard(g)).join('')}
+    const configured = domainGroups.filter(group => group.configured);
+    const unconfigured = domainGroups.filter(group => !group.configured);
+    const cardCount = configured.length + (unconfigured.length ? 1 : 0);
+    openTabsSectionCount.innerHTML = `标签组数量：${cardCount} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} 一键关闭所有标签</button>`;
+    openTabsMissionsEl.innerHTML = `
+      <div class="configured-sites">${configured.map(group => renderDomainCard(group)).join('')}</div>
+      ${unconfigured.length ? `<div class="unconfigured-sites">
+        <div class="mission-card unconfigured-card has-neutral-bar">
+          <div class="mission-content">
+            <div class="mission-top"><span class="mission-name"><span class="site-title-icon" aria-hidden="true">${ICONS.tabs}</span>其他站点</span></div>
+            <div class="mission-badges"><span class="open-tabs-badge">${ICONS.tabs} 标签总数：${unconfigured.reduce((sum, group) => sum + group.tabs.length, 0)}</span></div>
+            ${unconfigured.map(group => renderDomainCard(group, { embedded: true })).join('')}
           </div>
         </div>
-      `;
-    });
-
-    openTabsMissionsEl.innerHTML = html;
+      </div>` : ''}
+    `;
     openTabsSection.style.display = 'block';
   } else if (openTabsSection) {
     openTabsSection.style.display = 'none';
@@ -1515,7 +1124,7 @@ async function renderStaticDashboard() {
 
   // --- Footer stats ---
   const statTabs = document.getElementById('statTabs');
-  if (statTabs) statTabs.textContent = openTabs.length;
+  if (statTabs) statTabs.textContent = getRealTabs().length;
 
   // --- Check for duplicate Tab Out tabs ---
   checkTabOutDupes();
@@ -1524,8 +1133,37 @@ async function renderStaticDashboard() {
   await renderDeferredColumn();
 }
 
+let dashboardRefreshTimer = null;
+let dashboardRendering = false;
+let dashboardRefreshPending = false;
+
 async function renderDashboard() {
-  await renderStaticDashboard();
+  if (dashboardRendering) {
+    dashboardRefreshPending = true;
+    return;
+  }
+
+  dashboardRendering = true;
+  try {
+    do {
+      dashboardRefreshPending = false;
+      await renderStaticDashboard();
+    } while (dashboardRefreshPending);
+  } finally {
+    dashboardRendering = false;
+  }
+}
+
+function scheduleDashboardRefresh() {
+  // Merge tab events arriving within 100ms into one refresh.
+  clearTimeout(dashboardRefreshTimer);
+  dashboardRefreshTimer = setTimeout(() => {
+    dashboardRefreshTimer = null;
+    return renderDashboard().catch(error => {
+      console.warn('[tab-out] Refresh failed:', error);
+      showToast('刷新失败，请重试');
+    });
+  }, 100);
 }
 
 /* ----------------------------------------------------------------
@@ -1536,12 +1174,28 @@ async function renderDashboard() {
    instead of one per door.
    ---------------------------------------------------------------- */
 
-document.addEventListener('click', async (e) => {
+async function handleDashboardClick(e) {
   // Walk up the DOM to find the nearest element with data-action
   const actionEl = e.target.closest('[data-action]');
   if (!actionEl) return;
 
   const action = actionEl.dataset.action;
+
+  if (action === 'cache-todos') {
+    if (actionEl.disabled) return;
+    actionEl.disabled = true;
+    try {
+      const result = await chrome.runtime.sendMessage({ type: 'export-todos' });
+      if (!result.ok) throw new Error(result.error);
+      showToast(result.count ? '书签下载已发起，完成后自动归档' : '暂无待办可缓存');
+    } catch (error) {
+      console.warn('[tab-out] Bookmark export failed:', error);
+      showToast('缓存未完成，待办仍保留，请重试');
+    } finally {
+      await renderDeferredColumn();
+    }
+    return;
+  }
 
   // ---- Close duplicate Tab Out tabs ----
   if (action === 'close-tabout-dupes') {
@@ -1551,9 +1205,9 @@ document.addEventListener('click', async (e) => {
     if (banner) {
       banner.style.transition = 'opacity 0.4s';
       banner.style.opacity = '0';
-      setTimeout(() => { banner.style.display = 'none'; banner.style.opacity = '1'; }, 400);
+      setTimeout(() => { checkTabOutDupes(); banner.style.opacity = '1'; }, 400);
     }
-    showToast('Closed extra Tab Out tabs');
+    showToast('已关闭多余的管理页');
     return;
   }
 
@@ -1561,6 +1215,10 @@ document.addEventListener('click', async (e) => {
 
   // ---- Expand overflow chips ("+N more") ----
   if (action === 'expand-chips') {
+    const section = actionEl.closest('.unconfigured-site-section') || card;
+    if (section) {
+      expandedGroups.add(section.dataset.domainId);
+    }
     const overflowContainer = actionEl.parentElement.querySelector('.page-chips-overflow');
     if (overflowContainer) {
       overflowContainer.style.display = 'contents';
@@ -1571,22 +1229,14 @@ document.addEventListener('click', async (e) => {
 
   // ---- Focus a specific tab ----
   if (action === 'focus-tab') {
-    const tabUrl = actionEl.dataset.tabUrl;
-    if (tabUrl) await focusTab(tabUrl);
+    await focusTab(Number(actionEl.dataset.tabId));
     return;
   }
 
   // ---- Close a single tab ----
   if (action === 'close-single-tab') {
     e.stopPropagation(); // don't trigger parent chip's focus-tab
-    const tabUrl = actionEl.dataset.tabUrl;
-    if (!tabUrl) return;
-
-    // Close the tab in Chrome directly
-    const allTabs = await chrome.tabs.query({});
-    const match   = allTabs.find(t => t.url === tabUrl);
-    if (match) await chrome.tabs.remove(match.id);
-    await fetchOpenTabs();
+    await closeTabsByIds([Number(actionEl.dataset.tabId)]);
 
     playCloseSound();
 
@@ -1613,7 +1263,7 @@ document.addEventListener('click', async (e) => {
 
     // Update footer
     const statTabs = document.getElementById('statTabs');
-    if (statTabs) statTabs.textContent = openTabs.length;
+    if (statTabs) statTabs.textContent = getRealTabs().length;
 
     showToast('已关闭标签');
     return;
@@ -1631,15 +1281,11 @@ document.addEventListener('click', async (e) => {
       await saveTabForLater({ url: tabUrl, title: tabTitle });
     } catch (err) {
       console.error('[tab-out] Failed to save tab:', err);
-      showToast('Failed to save tab');
+      showToast('保存失败，请重试');
       return;
     }
 
-    // Close the tab in Chrome
-    const allTabs = await chrome.tabs.query({});
-    const match   = allTabs.find(t => t.url === tabUrl);
-    if (match) await chrome.tabs.remove(match.id);
-    await fetchOpenTabs();
+    await closeTabsByIds([Number(actionEl.dataset.tabId)]);
 
     // Animate chip out
     const chip = actionEl.closest('.page-chip');
@@ -1650,7 +1296,7 @@ document.addEventListener('click', async (e) => {
       setTimeout(() => chip.remove(), 200);
     }
 
-    showToast('Saved for later');
+    showToast('已保存到待办');
     await renderDeferredColumn();
     return;
   }
@@ -1662,56 +1308,15 @@ document.addEventListener('click', async (e) => {
 
     await checkOffSavedTab(id);
 
-    // Animate: strikethrough first, then slide out
-    const item = actionEl.closest('.deferred-item');
-    if (item) {
-      item.classList.add('checked');
-      setTimeout(() => {
-        item.classList.add('removing');
-        setTimeout(() => {
-          item.remove();
-          renderDeferredColumn(); // refresh counts and archive
-        }, 300);
-      }, 800);
-    }
+    await renderDeferredColumn();
     return;
   }
 
-  // ---- Dismiss a saved tab (removes it entirely) ----
-  if (action === 'dismiss-deferred') {
+  if (action === 'dismiss-deferred' || action === 'dismiss-archive-item') {
     const id = actionEl.dataset.deferredId;
     if (!id) return;
-
     await dismissSavedTab(id);
-
-    const item = actionEl.closest('.deferred-item');
-    if (item) {
-      item.classList.add('removing');
-      setTimeout(() => {
-        item.remove();
-        renderDeferredColumn();
-      }, 300);
-    }
-    return;
-  }
-
-  // ---- Dismiss an archived tab ----
-  if (action === 'dismiss-archive-item') {
-    const id = actionEl.dataset.deferredId;
-    if (!id) return;
-
-    await dismissSavedTab(id);
-
-    const item = actionEl.closest('.archive-item');
-    if (item) {
-      item.style.transition = 'opacity 0.2s, transform 0.2s';
-      item.style.opacity = '0';
-      item.style.transform = 'translateX(10px)';
-      setTimeout(() => {
-        item.remove();
-        renderDeferredColumn();
-      }, 200);
-    }
+    await renderDeferredColumn();
     return;
   }
 
@@ -1719,16 +1324,11 @@ document.addEventListener('click', async (e) => {
   if (action === 'close-domain-tabs') {
     const domainId = actionEl.dataset.domainId;
     const group    = domainGroups.find(g => buildGroupId(g.domain) === domainId);
-    if (!group) return;
+    if (!group || !group.configured) return;
 
-    const urls      = group.tabs.map(t => t.url);
-    const useExact  = group.closeMode === 'exact';
-
-    if (useExact) {
-      await closeTabsExact(urls);
-    } else {
-      await closeTabsByUrls(urls);
-    }
+    // Close only the tabs represented by this card, across all windows.
+    const tabIds = group.tabs.map(t => t.id);
+    await closeTabsByIds(tabIds);
 
     if (card) {
       playCloseSound();
@@ -1743,7 +1343,7 @@ document.addEventListener('click', async (e) => {
     showToast(`已关闭 ${groupLabel} 的全部标签`);
 
     const statTabs = document.getElementById('statTabs');
-    if (statTabs) statTabs.textContent = openTabs.length;
+    if (statTabs) statTabs.textContent = getRealTabs().length;
     return;
   }
 
@@ -1756,39 +1356,13 @@ document.addEventListener('click', async (e) => {
     await closeDuplicateTabs(urls, true);
     playCloseSound();
 
-    // Hide the dedup button
-    actionEl.style.transition = 'opacity 0.2s';
-    actionEl.style.opacity    = '0';
-    setTimeout(() => actionEl.remove(), 200);
-
-    // Remove dupe badges from the card
-    if (card) {
-      card.querySelectorAll('.chip-dupe-badge').forEach(b => {
-        b.style.transition = 'opacity 0.2s';
-        b.style.opacity    = '0';
-        setTimeout(() => b.remove(), 200);
-      });
-      card.querySelectorAll('.open-tabs-badge').forEach(badge => {
-        if (badge.textContent.includes('duplicate')) {
-          badge.style.transition = 'opacity 0.2s';
-          badge.style.opacity    = '0';
-          setTimeout(() => badge.remove(), 200);
-        }
-      });
-      card.classList.remove('has-amber-bar');
-      card.classList.add('has-neutral-bar');
-    }
-
     showToast('已关闭重复项');
     return;
   }
 
   // ---- Close ALL open tabs ----
   if (action === 'close-all-open-tabs') {
-    const allUrls = openTabs
-      .filter(t => t.url && !t.url.startsWith('chrome') && !t.url.startsWith('about:'))
-      .map(t => t.url);
-    await closeTabsByUrls(allUrls);
+    await closeTabsByIds(getRealTabs().map(tab => tab.id));
     playCloseSound();
 
     document.querySelectorAll('#openTabsMissions .mission-card').forEach(c => {
@@ -1803,31 +1377,42 @@ document.addEventListener('click', async (e) => {
     return;
   }
  
-  // ---- Restore last closed tab in background ----
+  // ---- Restore the most recently closed tab or window ----
   if (action === 'restore-tab') {
     try {
       const recentlyClosed = await chrome.sessions.getRecentlyClosed({ maxResults: 1 });
       if (recentlyClosed && recentlyClosed.length > 0) {
         const session = recentlyClosed[0];
-        if (session.tab) {
-          // It's a single tab
-          await chrome.tabs.create({ url: session.tab.url, active: false });
-        } else if (session.window) {
-          // It's a whole window (restore first tab of it in background)
-          const firstTab = session.window.tabs[0];
-          if (firstTab) await chrome.tabs.create({ url: firstTab.url, active: false });
+        const sessionId = session.tab?.sessionId || session.window?.sessionId;
+        if (!sessionId) {
+          showToast('没有可恢复的标签或窗口');
+          return;
         }
-        showToast('已在后台恢复标签');
+        await chrome.sessions.restore(sessionId);
+        showToast(session.window ? '已恢复最近关闭的窗口' : '已恢复最近关闭的标签');
       } else {
-        showToast('没有可恢复的标签');
+        showToast('没有可恢复的标签或窗口');
       }
     } catch (err) {
-      console.warn('[tab-out] Failed to restore in background:', err);
+      console.warn('[tab-out] Failed to restore session:', err);
       showToast('恢复失败');
     }
     return;
   }
+}
+
+document.addEventListener('click', e => {
+  handleDashboardClick(e).catch(error => {
+    console.warn('[tab-out] Action failed:', error);
+    showToast('操作失败，请刷新后重试');
+    scheduleDashboardRefresh();
+  });
 });
+
+// Extension CSP disallows inline onerror handlers. Hide unavailable site icons.
+document.addEventListener('error', e => {
+  if (e.target.matches?.('img')) e.target.style.display = 'none';
+}, true);
 
 // ---- Archive toggle — expand/collapse the archive section ----
 document.addEventListener('click', (e) => {
@@ -1845,27 +1430,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('input', async (e) => {
   if (e.target.id !== 'archiveSearch') return;
 
-  const q = e.target.value.trim().toLowerCase();
-  const archiveList = document.getElementById('archiveList');
-  if (!archiveList) return;
-
   try {
-    const { archived } = await getSavedTabs();
-
-    if (q.length < 2) {
-      // Show all archived items
-      archiveList.innerHTML = archived.map(item => renderArchiveItem(item)).join('');
-      return;
-    }
-
-    // Filter by title or URL containing the query string
-    const results = archived.filter(item =>
-      (item.title || '').toLowerCase().includes(q) ||
-      (item.url  || '').toLowerCase().includes(q)
-    );
-
-    archiveList.innerHTML = results.map(item => renderArchiveItem(item)).join('')
-      || '<div style="font-size:12px;color:var(--muted);padding:8px 0">没有找到匹配的标签</div>';
+    await renderDeferredColumn();
   } catch (err) {
     console.warn('[tab-out] Archive search failed:', err);
   }
@@ -1875,13 +1441,20 @@ document.addEventListener('input', async (e) => {
    INITIALIZE
    ---------------------------------------------------------------- */
 // ---- Real-time auto-refresh when tabs change ----
-chrome.tabs.onCreated.addListener(() => fetchOpenTabs().then(renderDashboard));
-chrome.tabs.onRemoved.addListener(() => fetchOpenTabs().then(renderDashboard));
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  // Only refresh when loading is complete or the user changes URL/Title
-  if (changeInfo.status === 'complete' || changeInfo.url || changeInfo.title) {
-    fetchOpenTabs().then(renderDashboard);
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && (changes.deferred || changes.pendingBookmarkExport)) {
+    return renderDeferredColumn();
   }
 });
 
+chrome.tabs.onCreated.addListener(scheduleDashboardRefresh);
+chrome.tabs.onRemoved.addListener(scheduleDashboardRefresh);
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  // Only refresh when loading is complete or the user changes URL/Title
+  if (changeInfo.status === 'complete' || changeInfo.url || changeInfo.title) {
+    scheduleDashboardRefresh();
+  }
+});
+
+renderQuickNavigation();
 renderDashboard();

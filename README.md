@@ -1,91 +1,155 @@
 # Tab Out
 
-**Keep tabs on your tabs.**
+Tab Out 是一个 Chrome 新标签页扩展，用于集中查看、切换和整理已打开的标签，并将暂时不看的内容保存到待办清单。
 
-Tab Out is a Chrome extension that replaces your new tab page with a dashboard of everything you have open. Tabs are grouped by domain, with homepages (Gmail, X, LinkedIn, etc.) pulled into their own group. Close tabs with a satisfying swoosh + confetti.
+扩展无需后端服务或独立账号，运行时不需要 Node.js 或 npm。待办与归档保存在当前浏览器的本地扩展存储中；字体和标签行图标会从 Google 服务加载。
 
-No server. No account. No external API calls. Just a Chrome extension.
+## 安装与更新
 
----
+1. 下载项目，或使用 Git 克隆：
 
-## Install with a coding agent
+   ~~~bash
+   git clone https://github.com/zarazhangrui/tab-out.git
+   cd tab-out
+   ~~~
 
-Send your coding agent (Claude Code, Codex, etc.) this repo and say **"install this"**:
+2. 在 Chrome 地址栏打开 chrome://extensions。
+3. 开启右上角的“开发者模式”。
+4. 点击“加载已解压的扩展程序”，选择项目内的 extension 文件夹。
+5. 打开新标签页，即可看到管理页面。
 
-```
-https://github.com/zarazhangrui/tab-out
-```
+也可以让 Codex、Claude Code 等编程助手协助完成安装。
 
-The agent will walk you through it. Takes about 1 minute.
+更新代码后，在扩展管理页点击 Tab Out 的“重新加载”，再刷新已打开的管理页。涉及权限或后台逻辑的更新，仅刷新管理页不足以生效。
 
----
+查看本地文件标签时，还需在扩展详情中开启“允许访问文件网址”。
 
-## Features
+## 活动标签与导航
 
-- **See all your tabs at a glance** on a clean grid, grouped by domain
-- **Homepages group** pulls Gmail inbox, X home, YouTube, LinkedIn, GitHub homepages into one card
-- **Close tabs with style** with swoosh sound + confetti burst
-- **Duplicate detection** flags when you have the same page open twice, with one-click cleanup
-- **Click any tab to jump to it** across windows, no new tab opened
-- **Save for later** bookmark tabs to a checklist before closing them
-- **Localhost grouping** shows port numbers next to each tab so you can tell your vibe coding projects apart
-- **Expandable groups** show the first 8 tabs with a clickable "+N more"
-- **100% local** your data never leaves your machine
-- **Pure Chrome extension** no server, no Node.js, no npm, no setup beyond loading the extension
+- 已配置站点分别展示卡片，按名称升序排列：中文按拼音排序并排在英文前，英文内部按字母排序。
+- 已配置卡片采用多栏布局，阅读顺序是先从上到下，再到右侧一列。
+- 未匹配的站点集中在最右侧的“其他站点”卡片中，按域名分段，不提供整卡批量关闭。
+- GitHub、Gist、GitHub 文档、GitLab、Gitee、GitCode 和 Git 官方文档合并为“Git 与代码托管”，直接展示统一的标签列表。
+- 每个站点默认显示前 5 个不同 URL，其余点击展开；展开状态在当前管理页的后续刷新中保留。
+- 重复标签按完整 URL 判断，包括查询参数和片段；清理重复项时优先保留活动副本。
+- 点击标题会切换到对应标签及其窗口；关闭操作按标签 ID 执行。
+- 本地文件单独归组，本机服务标签会显示端口号。
+- 站点标题使用本地文字或 SVG 图标，关闭标签时提供声音与动画反馈。
+- 活动区和待办区独立滚动，待办为空时仍保留区域。
 
----
+顶部固定提供百度、谷歌翻译、千问会话、GitHub、Hugging Face、X 和 YouTube 七个导航入口。配置中指定的入口主页不再出现在活动卡片内；仓库、搜索结果、具体会话等内容页照常显示。底部标签总数仍包含这些主页。
 
-## Manual Setup
+底部提供刷新、关闭标签和恢复最近关闭的标签或窗口等操作。
 
-**1. Clone the repo**
+## 待办、归档与缓存
 
-```bash
-git clone https://github.com/zarazhangrui/tab-out.git
-```
+点击标签行的保存按钮，可将标题和 URL 写入待办；保存成功后才关闭原标签。写入失败时保留原标签。
 
-**2. Load the Chrome extension**
+- 勾选待办后，条目移入“归档”，归档列表支持标题与 URL 搜索。
+- 移除待办或归档条目时，当前实现设置隐藏标记，原记录仍留在存储中。
+- 多个管理页通过存储事件同步待办与归档。
+- “待办清单”右侧的“缓存”按钮导出全部未完成、未隐藏的待办，不受归档搜索条件影响。
 
-1. Open Chrome and go to `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked**
-4. Navigate to the `extension/` folder inside the cloned repo and select it
+缓存文件采用 UTF-8 编码的浏览器书签 HTML 格式，默认名称为 Tab-Out-待办-年-月-日.html，可通过浏览器书签管理器导入。点击后会弹出保存对话框。
 
-**3. Open a new tab**
+**缓存仅保存标题与链接，不下载网页正文，也不提供离线网页副本。**
 
-You'll see Tab Out.
+只有 Chrome 确认下载完成，插件才自动归档本次导出的条目。取消、下载中断或失败时保留待办；期间新增的待办不受影响。后台持久化下载跟踪信息，管理页关闭或后台重新启动后仍可继续处理。
 
----
+## 每日自动收纳
 
-## How it works
+后台按电脑本地时间每天零点检查标签，将超过 7 天未激活的标签保存到待办，保存成功后关闭。
 
-```
-You open a new tab
-  -> Tab Out shows your open tabs grouped by domain
-  -> Homepages (Gmail, X, etc.) get their own group at the top
-  -> Click any tab title to jump to it
-  -> Close groups you're done with (swoosh + confetti)
-  -> Save tabs for later before closing them
-```
+- 跳过当前激活的标签、浏览器内部页面，以及最后激活时间未知或无效的标签。
+- 同一 URL 已有未完成且未隐藏的待办时复用该条目，避免重复保存。
+- 关闭前重新核对标签状态，避免关闭在收纳过程中被激活或跳转的标签。
+- 首次启用从下一个本地零点开始，不立即清理标签。
+- 管理页无需保持打开；浏览器关闭或休眠可能导致任务延后，恢复运行后会检查并补跑已到期任务。
+- 执行失败时保留到期状态，并安排 5 分钟后重试。
 
-Everything runs inside the Chrome extension. No external server, no API calls, no data sent anywhere. Saved tabs are stored in `chrome.storage.local`.
+这里的“最后激活”不等同于最后阅读、点击或滚动的时间。该功能使用浏览器提供的最后激活时间；没有这一字段的标签会跳过。
 
----
+## 站点配置
 
-## Tech stack
+站点定义集中在 extension/rules.js 的 SITES 数组中：
 
-| What | How |
-|------|-----|
-| Extension | Chrome Manifest V3 |
-| Storage | chrome.storage.local |
-| Sound | Web Audio API (synthesized, no files) |
-| Animations | CSS transitions + JS confetti particles |
+~~~js
+{
+  id: 'aliyun',
+  name: 'Aliyun',
+  icon: '云',
+  hosts: ['aliyun.com'],
+  includeSubdomains: true
+}
+~~~
 
----
+| 字段 | 说明 |
+| --- | --- |
+| id | 稳定标识，用于分组；修改显示名称时保持不变 |
+| name | 卡片显示名称 |
+| icon | 简短本地图标文字，例如“云”或“GH”；导航站点复用导航 SVG |
+| hosts | 精确匹配的域名列表，可将多个域名归入同一卡片 |
+| includeSubdomains | 是否包含 hosts 的下级域名，默认关闭 |
+| navigation | 可选导航配置，包含入口名称、地址、图标键、顺序和主页排除规则 |
 
-## License
+匹配时优先检查精确域名，再检查明确启用的子域名规则；多个子域名规则重叠时，更具体的域名优先。未显式启用子域名匹配的站点不会自动继承父域名的身份。
 
-MIT
+例如，Aliyun 包含帮助文档、DevOps、Codeup 等子站，但精确配置的 tongyi.aliyun.com 仍归千问。Google 搜索的区域域名归入同一卡片，Gmail、文档、云盘和 Google Play 保留独立。Git 集合之外，不按公司或用途合并不同产品。
 
----
+不会将任意 github.io、amazonaws.com、workers.dev、notion.site 等托管页面直接归为平台站点。
 
-Built by [Zara](https://x.com/zarazhangrui)
+navigation 的 excludeHosts 和 excludePaths 必须同时匹配才排除入口主页。新增站点定义不会自动增加顶部导航。项目也保留 config.local.js 中 LOCAL_CUSTOM_GROUPS 的自定义分组能力。
+
+## 数据、权限与隐私
+
+待办和归档保存在 chrome.storage.local 的 deferred 键中，由后台统一串行写入，避免多个页面并发操作时相互覆盖。
+
+| 数据字段 | 含义 |
+| --- | --- |
+| id | 条目标识，新条目使用 UUID，旧条目标识仍兼容 |
+| url、title | 页面地址与标题 |
+| savedAt | 保存时间 |
+| completed、completedAt | 是否归档及归档时间 |
+| dismissed | 是否隐藏 |
+
+这份数据不是项目目录中的 JSON 文件，也不会自动保存到 Obsidian。浏览器配置文件之间不会自动同步。
+
+| 权限 | 用途 |
+| --- | --- |
+| tabs、activeTab | 获取标签信息、切换标签及关闭操作 |
+| storage | 保存待办、归档、任务到期时间及下载跟踪状态 |
+| sessions | 恢复最近关闭的标签或窗口 |
+| alarms | 安排每日收纳与失败重试 |
+| downloads | 导出书签文件，并确认下载结果后归档 |
+
+扩展本身没有业务后端。页面字体使用 Google Fonts，标签行与待办链接图标使用 Google 的站点图标服务。图标请求包含域名，不包含完整页面 URL 或标题；这些外部请求仍会暴露 IP 地址等正常网络元数据。站点卡片标题与顶部导航图标在本地渲染。
+
+## 项目结构
+
+| 路径 | 职责 |
+| --- | --- |
+| extension/manifest.json | 扩展入口与权限 |
+| extension/index.html | 管理页结构 |
+| extension/style.css | 布局、样式与动画 |
+| extension/rules.js | 站点身份、域名别名、图标和导航配置 |
+| extension/app.js | 标签查询、分组、渲染与页面交互 |
+| extension/background.js | 待办串行写入、每日收纳、下载归档与角标 |
+| tests/regression.test.cjs | 模拟 Chrome 接口的回归测试 |
+
+## 开发验证
+
+扩展运行无需构建。运行测试需要 Node.js 18 或更新版本：
+
+~~~bash
+node --test tests/regression.test.cjs
+node --check extension/app.js
+node --check extension/background.js
+node --check extension/rules.js
+git diff --check
+~~~
+
+测试覆盖标签操作、并发写入、分组、自动收纳、书签缓存及异常恢复。测试使用模拟 Chrome 接口，不能代替实际浏览器中的保存对话框、文件导入、休眠唤醒和跨窗口操作验证。
+
+## 许可与作者
+
+项目采用 MIT 许可。原作者为 Zara，GitHub 项目为 zarazhangrui/tab-out，X 账号为 @zarazhangrui。
